@@ -1,0 +1,171 @@
+
+<variable name="$SERIAL_NUMBER"           value=""/>
+<variable name="$TEST_IN_PROGRESS"        value="0"/>
+<variable name="$TEST_ABORTED"            value="0"/>
+
+<variable name="$NUMBER_OF_UNITS_OK"      value="0"/>
+<variable name="$NUMBER_OF_UNITS_NOK"     value="0"/>
+<variable name="$NUMBER_OF_UNITS_ABORTED" value="0"/>
+<variable name="$CURRENT_TEST_YIELD"      value="0"/>
+<variable name="$CTY_LIMITE_U"            value="97.00"/>
+<variable name="$CTY_LIMITE_L"            value="95.00"/>
+
+<!-- START function -->
+<event name="evt_start"   sequence="seq_start" mode="NORMAL"/>
+<sequence name="seq_start">
+  <play sequence="seq_reload" as_thread="true"/>
+</sequence>
+
+<sequence name="seq_reload" pass_event="evt_start_after_reload">
+  <call module="Base" function="call_back" command="$RELOAD"/>
+</sequence>
+
+<event name="evt_pass"   sequence="seq_pass" mode="NORMAL"/>
+<sequence name="seq_pass">
+  <calculate expression="0" result="$TEST_IN_PROGRESS"/>
+  <calculate expression="$NUMBER_OF_UNITS_OK + 1" result="$NUMBER_OF_UNITS_OK"/>
+  <play sequence="seq_statistics" as_thread="false"/>
+  <play sequence="seq_save_trace" as_thread="false"/>
+  <call module="Gui" function="label_set_text" id="id_label_text" text="Test OK, press stop button" back_color="0x00FF00" text_color="0x000000"/>
+  <call module="Gui" function="set_enable"     id="id_bt_stop"    enable="true"/>
+  <call module="Gui" function="set_focus"      id="id_bt_stop"/>
+</sequence>
+
+<event name="evt_failed"   sequence="seq_failed" mode="NORMAL"/>
+<sequence name="seq_failed">
+  <calculate expression="0" result="$TEST_IN_PROGRESS"/>
+  <calculate expression="$NUMBER_OF_UNITS_NOK + 1" result="$NUMBER_OF_UNITS_NOK"/>
+  <play sequence="seq_statistics" as_thread="false"/>
+  <play sequence="seq_save_trace" as_thread="false"/>
+  <call module="Gui" function="label_set_text" id="id_label_text" text="Test failed, press stop button" back_color="0x0000FF" text_color="0x000000"/>
+  <call module="Gui" function="set_enable"     id="id_bt_stop"    enable="true"/>
+  <call module="Gui" function="set_focus"      id="id_bt_stop"/>
+</sequence>
+
+<event name="evt_abort"    sequence="seq_abort" mode="NORMAL"/>
+<sequence name="seq_abort">
+  <calculate expression="$NUMBER_OF_UNITS_ABORTED + 1" result="$NUMBER_OF_UNITS_ABORTED"/>
+  <play sequence="seq_statistics" as_thread="false"/>
+  <play sequence="seq_save_trace" as_thread="false"/>
+  <call module="Gui" function="label_set_text" id="id_label_text" text="Test aborted, press stop button" back_color="0x0077FF" text_color="0x000000"/>
+  <call module="Gui" function="set_enable"     id="id_bt_stop"    enable="true"/>
+  <call module="Gui" function="set_focus"      id="id_bt_stop"/>
+
+</sequence>
+
+<event name="evt_stop"    sequence="seq_stop" mode="NORMAL"/>
+<sequence name="seq_stop" pass_event="evt_scan_code">
+  <if expression="$TEST_IN_PROGRESS == 0">
+    <call module="Gui" function="label_set_text"  id="id_label_text"    text="Scan product label" back_color="0xC0C0C0" text_color="0x000000"/>
+    <call module="Gui" function="set_enable"      id="id_tf_serial_number" enable="true"/>
+    <call module="Gui" function="textfield_clear" id="id_tf_serial_number"/>
+    <call module="Gui" function="set_enable"      id="id_bt_start"         enable="false"/>
+    <call module="Gui" function="set_focus"       id="id_tf_serial_number"/>
+  </if>
+  <if expression="$TEST_IN_PROGRESS == 1">
+    <calculate expression="0" result="$TEST_IN_PROGRESS"/>
+    <stop sequence="$TEST_SEQUENCE"/>
+  </if>
+</sequence>
+
+<event name="evt_start_after_reload"   sequence="seq_start_after_reload" mode="NORMAL"/>
+<sequence name="seq_start_after_reload">
+  <call module="Gui" function="textfield_get_line_text" id="id_tf_serial_number" line="0" text="$SERIAL_NUMBER"/>
+  <call module="Gui" function="set_enable"              id="id_bt_stop"          enable="true"/>
+  <call module="Gui" function="set_focus"               id="id_bt_stop"/>
+  <call module="Gui" function="textfield_clear"         id="id_tf_output"/>
+  <call module="Gui" function="label_set_text"          id="id_label_text"    text="Test in progress..." back_color="0x00FFFF" text_color="0x000000"/>
+  <calculate expression="1" result="$TEST_IN_PROGRESS"/>
+  <play sequence="seq_fill_trace" as_thread="false"/>
+
+  <play sequence="$TEST_SEQUENCE_PRE" as_thread="false"/>
+
+  <play sequence="$TEST_SEQUENCE" as_thread="true"/>
+</sequence>
+
+<variable name="$BAR_CODE_STATUS" value="0"/>
+
+<event name="evt_scan_code" sequence="seq_scan_code" mode="NORMAL"/>
+<sequence name="seq_scan_code">
+  <call module="Gui" function="textfield_get_line_text" id="id_tf_serial_number" line="0" text="$SERIAL_NUMBER"/>
+  <call module="Base" function="bar_code" value="$SERIAL_NUMBER" length="$BARCODE_LENGTH" pattern="PI" status="$BAR_CODE_STATUS"/>
+  <while expression="$BAR_CODE_STATUS != 0">
+    <if expression="$BAR_CODE_STATUS == 2">
+      <call module="Gui"  function="set_enable"         id="id_tf_serial_number" enable="false"/>
+      <call module="Gui"  function="textfield_clear"    id="id_tf_serial_number"/>
+      <call module="Base" function="wait_ms"            value="200"/>
+      <call module="Gui"  function="textfield_clear"    id="id_tf_serial_number"/>
+      <call module="Gui"  function="set_enable"         id="id_tf_serial_number" enable="true"/>
+    </if>
+    <call module="Base" function="wait_ms"            value="200"/>
+    <call module="Gui" function="textfield_get_line_text" id="id_tf_serial_number" line="0" text="$SERIAL_NUMBER"/>
+    <call module="Base" function="bar_code" value="$SERIAL_NUMBER" length="$BARCODE_LENGTH" pattern="$BARCODE_PATTERN" status="$BAR_CODE_STATUS"/>
+  </while>
+  <call module="Base" function="make_upper_case" value="$SERIAL_NUMBER"/>
+  <call module="Gui"  function="textfield_clear"    id="id_tf_serial_number"/>
+  <call module="Gui"  function="textfield_add_text" id="id_tf_serial_number" text="$SERIAL_NUMBER"/>
+  <call module="Base" function="wait_ms"            value="500"/>
+  <call module="Gui"  function="label_set_text"     id="id_label_text"    text="Click on start button" back_color="0xC0C0C0" text_color="0x000000"/>
+  <call module="Gui"  function="set_enable"         id="id_bt_start"         enable="true"/>
+  <call module="Gui"  function="set_focus"          id="id_bt_start"/>
+  <call module="Gui"  function="set_enable"         id="id_tf_serial_number" enable="false"/>
+</sequence>
+
+<sequence name="seq_statistics">
+    <calculate expression="$NUMBER_OF_UNITS_OK + $NUMBER_OF_UNITS_NOK" result="$CURRENT_TEST_YIELD"/>
+    <calculate expression="$NUMBER_OF_UNITS_OK / $CURRENT_TEST_YIELD"  result="$CURRENT_TEST_YIELD"/>
+    <calculate expression="$CURRENT_TEST_YIELD * 100"                  result="$CURRENT_TEST_YIELD"/>
+
+  <if expression="$CURRENT_TEST_YIELD >= $CTY_LIMITE_U">
+    <call module="Gui" function="label_set_text" id="id_la_stat_OK_value"      text="$NUMBER_OF_UNITS_OK"      back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_NOK_value"     text="$NUMBER_OF_UNITS_NOK"     back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_value" text="$NUMBER_OF_UNITS_ABORTED" back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_value"   text="$CURRENT_TEST_YIELD"      back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_alert_l"       text=" "                        back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_alert_r"       text=" "                        back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_OK_text"       text="Number of units OK"       back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_OK_units"      text=" units"                   back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_NOK_text"      text="Number of units NOK"      back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_NOK_units"     text=" units"                   back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_text"  text="Number of units ABORTED"  back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_units" text=" units"                   back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_text"    text="Current Test Yield"       back_color="0x00FF00" text_color="0x000000"/>
+    <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_units"   text=" %"                       back_color="0x00FF00" text_color="0x000000"/>
+  </if>
+  <if expression="$CURRENT_TEST_YIELD < $CTY_LIMITE_U">
+    <if expression="$CURRENT_TEST_YIELD >= $CTY_LIMITE_L">
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_value"      text="$NUMBER_OF_UNITS_OK"      back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_value"     text="$NUMBER_OF_UNITS_NOK"     back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_value" text="$NUMBER_OF_UNITS_ABORTED" back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_value"   text="$CURRENT_TEST_YIELD"      back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_alert_l"       text=" "                        back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_alert_r"       text=" "                        back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_text"       text="Number of units OK"       back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_units"      text=" units"                   back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_text"      text="Number of units NOK"      back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_units"     text=" units"                   back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_text"  text="Number of units ABORTED"  back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_units" text=" units"                   back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_text"    text="Current Test Yield"       back_color="0x00C8FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_units"   text=" %"                       back_color="0x00C8FF" text_color="0x000000"/>
+    </if>
+    <if expression="$CURRENT_TEST_YIELD < $CTY_LIMITE_L">
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_value"      text="$NUMBER_OF_UNITS_OK"      back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_value"     text="$NUMBER_OF_UNITS_NOK"     back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_value" text="$NUMBER_OF_UNITS_ABORTED" back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_value"   text="$CURRENT_TEST_YIELD"      back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_alert_l"       text=" "                        back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_alert_r"       text=" "                        back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_text"       text="Number of units OK"       back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_OK_units"      text=" units"                   back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_text"      text="Number of units NOK"      back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_NOK_units"     text=" units"                   back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_text"  text="Number of units ABORTED"  back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_ABORTED_units" text=" units"                   back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_text"    text="Current Test Yield"       back_color="0x0000FF" text_color="0x000000"/>
+      <call module="Gui" function="label_set_text" id="id_la_stat_YIELD_units"   text=" %"                       back_color="0x0000FF" text_color="0x000000"/>
+    </if>
+  </if>
+</sequence>
+
+

@@ -1,0 +1,357 @@
+<module name="Product" dll_name="Mykonos.dll"/>
+
+<include file="FVT1_MB\\TRACE.xml"/>
+
+<variable name="$SCRIPT_VERSION" value="V02.14.00"/>
+
+<variable name="$TEST_SEQUENCE"     value="seq_execute"     indexed="true"/>
+<variable name="$TEST_SEQUENCE_PRE" value="seq_execute_pre" indexed="true"/>
+
+<sequence name="seq_execute_pre" pass_event="" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+  <step name="Get test bench software version" mode="NORMAL">
+    <call module="Base"    function="print_version"      script_version="$SCRIPT_VERSION"/>
+    <call module="Product" function="print_version"/>
+    <call module="Product" function="io_board_configure" command="OPEN" value="1"/>
+  </step>
+  
+</sequence>
+
+<sequence name="seq_execute" pass_event="evt_pass" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+  <if expression="$ENABLE_CHECK_FIXTURE_STATUS_CLOSED == 1">
+  <step name="Fixture status" mode="NORMAL">
+    <call module="Product" function="fixture_control" command="INIT_COM" port="$FIXTURE_COM_PORT" baudrate="$FIXTURE_BAUDRATE"/>
+    <call module="Product" function="fixture_control" command="CHECK_FIXTURE_STATUS" status="CLOSED" timeout="1000"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_CHECK_FIXTURE_STATUS_CLOSED == 0">
+  <if expression="$ENABLE_BUTTON_CHECKING == 1"> 
+  <if expression="$ENABLE_AUTOMATIC_BUTTON_CHECKING == 1">
+  <step name="Open Fixture UART Communication" mode="NORMAL">
+    <call module="Product" function="fixture_control" command="INIT_COM" port="$FIXTURE_COM_PORT" baudrate="$FIXTURE_BAUDRATE"/>
+  </step>
+  </if>
+  </if>
+  </if>
+  
+  <step name="Reset product in normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+  </step>
+
+  <if expression="$ENABLE_CURRENT_CONSUMPTION_CHECKING == 1">
+  <step name="Check Test current consumption" mode="NORMAL">
+    <call module="Product" function="test_current_consumption" name="MOTHER_BOARD" 
+                                                               min="$NORMAL_STATE_CONSUMPTION_MIN"
+                                                               max="$NORMAL_STATE_CONSUMPTION_MAX"
+                                                               coefficient="$MOTHER_BOARD_CONSUMPTION_COEFFICIENT"/>
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_VOLTAGE_LEVEL_CHECKING == 1">
+  <step name="Check voltage level" mode="CONTINUE">
+    <call module="Product" function="test_voltage_level" name="5V"		     min="$VOLTAGE_5V_MIN"    max="$VOLTAGE_5V_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VIN_3V6"    min="$VOLTAGE_VIN_3V6_MIN"    max="$VOLTAGE_VIN_3V6_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VDD1_IVA"          min="$VOLTAGE_VDD1_IVA_MIN"          max="$VOLTAGE_VDD1_IVA_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VDD2_CORE" min="$VOLTAGE_VDD2_CORE_MIN" max="$VOLTAGE_VDD2_CORE_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VIO_1V8"     min="$VOLTAGE_VIO_1V8_MIN"     max="$VOLTAGE_VIO_1V8_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VPLL1"    min="$VOLTAGE_VPLL1_MIN"    max="$VOLTAGE_VPLL1_MAX"/>
+    <call module="Product" function="test_voltage_level" name="VMMC1"       min="$VOLTAGE_VMMC1_MIN"       max="$VOLTAGE_VMMC1_MAX"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_26_MHZ_QUARTZ_CHECKING == 1">
+  <step name="Check 26 MHz quartz" mode="NORMAL">
+    <call module="Product" function="init_frequency_meter"/>
+    <call module="Product" function="send_command_to_freqency_meter" command="MEAS:FREQ? (@1)\n"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="send_command_to_freqency_meter" command=":INP1:LEV:AUTO ON"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="send_command_to_freqency_meter" command=":INP1:SLOP POS"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="send_command_to_freqency_meter" command=":INP1:COUP AC"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="send_command_to_freqency_meter" command=":INP1:IMP 1000000"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="send_command_to_freqency_meter" command=":INP1:ATT 1"/>
+    <call module="Base"    function="wait_ms"                        value="100"/>
+    <call module="Product" function="get_frequency_value"            frequency="$26MHZ_QUARTZ_FREQUENCY" count="10"/>
+    <call module="Product" function="check_frequency_value"          frequency="$26MHZ_QUARTZ_FREQUENCY" target="26000000" tolerance="20"/>
+  </step>
+  </if>
+
+  <step name="Flash embedded firmware in ROM" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Product" function="control_flash_file"  command="INIT"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_PROD_USB_FLASHER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_PROD_FIRMWARE_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+		<call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+		<call module="Base"    function="wait_ms"            value="1000"/>
+		<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+		<call module="Base"    function="wait_ms"            value="500"/>
+		<call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+		<call module="Product" function="control_flash_file"  command="INIT"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+		<call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+		<call module="Base"    function="wait_ms"             value="100"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_PROD_USB_FLASHER_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+		<call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+		<call module="Base"    function="wait_ms"             value="100"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_PROD_FIRMWARE_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE"/>
+    </if>
+  </step>
+
+  <step name="Reset product in normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+  </step>
+
+  <step name="Open USB communication" mode="NORMAL">
+    <call module="Base"    function="wait_ms"              value="8000"/>
+    <call module="Product" function="communication_add"    name="USB_0"/>
+    <call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="5000" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+      <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+      <call module="Base"    function="wait_ms"              value="1000"/>
+      <call module="Product" function="set_digital_output"   name="12V_DUT_ON"/>
+      <call module="Base"    function="wait_ms"              value="5000"/>
+	  <call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+      <call module="Product" function="communication_add"    name="USB_0"/>
+      <call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="5000"/>
+    </if>
+    <call module="Product" function="communication_select" name="USB_0"/>
+  </step>
+
+  <step name="Check embedded test software version" mode="NORMAL">
+    <call module="Product" function="check_embedded_software_version" major="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" 
+                                                                      minor="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR"/>
+  </step>
+
+  <if expression="$ENABLE_VOLTAGE_LEVEL_CHECKING == 1">
+  <step name="Check WIFI level" mode="CONTINUE">
+    <call module="Product" function="test_voltage_level" name="3V3_WIFI"       min="$VOLTAGE_3V3_WIFI_MIN"       max="$VOLTAGE_3V3_WIFI_MAX"/>
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_BUTTON_CHECKING == 1">
+  <if expression="$ENABLE_AUTOMATIC_BUTTON_CHECKING == 1">
+  <step name="Check Reset button" mode="NORMAL">
+    <call module="Product" function="check_gpio_state"   number="87" state="0"/>
+    <call module="Product" function="fixture_control" command="PRESS_RESET_BUTTON" timeout="$BUTTON_TEST_TIMEOUT"/>
+    <call module="Base"    function="wait_ms"              value="200"/>
+    <call module="Product" function="check_gpio_state"   number="87" state="1"/>
+    <call module="Product" function="fixture_control" command="RELEASE_RESET_BUTTON" timeout="$BUTTON_TEST_TIMEOUT"/>
+    <call module="Base"    function="wait_ms"              value="200"/>
+    <call module="Product" function="check_gpio_state"   number="87" state="0"/>
+  </step>
+  </if>
+  <if expression="$ENABLE_AUTOMATIC_BUTTON_CHECKING == 0">
+  <step name="Check Reset button" mode="NORMAL">
+    <call module="Product" function="check_gpio_state"   number="87" state="0"/>
+    <call module="Product" function="check_reset_button"   number="87" timeout="$RESET_BUTTON_TIMEOUT" path="PICTURES\\BUTTON_RESET.JPG"/>
+  </step>
+  </if>
+  </if>
+  
+  <if expression="$ENABLE_UART_NAV_BOARD_CHECKING == 1">
+  <step name="Check uart nav board" mode="NORMAL">
+    <call module="Product" function="communication_add"    name="UART_2"/>
+    <call module="Product" function="communication_open"   name="UART_2" port="$NAV_BOARD_COM_PORT"
+                                                                         baudrate="$NAV_BOARD_BAUDRATE"
+                                                                         overspeed="$NAV_BOARD_OVERSPEED" />
+    <call module="Product" function="communication_select" name="UART_2"/>
+    <call module="Product" function="check_embedded_software_version" major="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" 
+                                                                      minor="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR"/>
+    <call module="Product" function="communication_close"  name="UART_2"/>
+    <call module="Product" function="communication_select" name="USB_0"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_UART_MOTOR_1_CHECKING == 1">
+   <step name="Check uart motor 1" mode="NORMAL">
+    <call module="Product" function="test_motor" command="CHECK_MOTOR1_UART_LOOP" number="10"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_UART_MOTOR_2_CHECKING == 1">
+   <step name="Check uart motor 2" mode="NORMAL">
+    <call module="Product" function="test_motor" command="CHECK_MOTOR2_UART_LOOP" number="10"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_UART_MOTOR_3_CHECKING == 1">
+   <step name="Check uart motor 3" mode="NORMAL">
+    <call module="Product" function="test_motor" command="CHECK_MOTOR3_UART_LOOP" number="10"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_UART_MOTOR_4_CHECKING == 1">
+   <step name="Check uart motor 4" mode="NORMAL">
+    <call module="Product" function="test_motor" command="CHECK_MOTOR4_UART_LOOP" number="10"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_MOTOR_FAULT_SIGNAL_CHECKING == 1">
+  <step name="Check motor fault signal" mode="NORMAL">
+    <call module="Product" function="set_digital_output" name="5V_FAULT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="check_gpio_state"   number="176" state="0"/>
+    <call module="Product" function="set_digital_output" name="5V_FAULT_ON"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="check_gpio_state"   number="176" state="1"/>
+    <call module="Product" function="set_digital_output" name="5V_FAULT_OFF"/>
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_WIFI_MODULE_COMMUNICATION_CHECKING == 1">
+  <step name="Check WiFi module communication" mode="NORMAL">
+    <call module="Product" function="console" command="wifi_testmode.sh" parameters=" >/tmp/wifi_log.txt" and="2"/>
+    <!--call module="Product" function="console" command="wifi_setup.sh" parameters=" >/tmp/wifi_log.txt" and="2"/-->
+    <call module="Base"    function="wait_ms" value="3000"/>
+    <call module="Product" function="download_file"  pc_path="TRACES\\wifi_log.txt" embedded_path="/tmp/wifi_log.txt" block_size="2048"/>
+    <call module="Product" function="analyze_text_file" path="TRACES\\wifi_log.txt" command="not_present" value="bmiloader: ath0: Input/output error"/>
+    <call module="Product" function="analyze_text_file" path="TRACES\\wifi_log.txt" command="present"     value="BMI Done"/>
+  </step>
+  </if>
+  
+  <step name="Save MAC address" mode="NORMAL">
+    <call module="Product" function="mac_address" command="GET" address="$MAC_ADDRESS"/>
+    <call module="Product" function="set_parameter" type="SET_APPLI"
+                                                    key0="parameters"
+                                                    key1="mac_address"
+                                                    name="value"
+                                                    value="$MAC_ADDRESS"/>
+    <call module="Base"    function="set_variable"       variable="$COMMAND" value="'"/>
+    <call module="Base"    function="concatenate_string" string1="$COMMAND" string2="$MAC_ADDRESS"/>
+    <call module="Base"    function="concatenate_string" string1="$COMMAND" string2="' >factory/mac_address.txt"/>
+    <call module="Product" function="console"            command="echo" parameters="$COMMAND"/>
+  </step>
+ 
+  <step name="Save PCB number" mode="NORMAL">
+    <call module="Product" function="set_parameter" type="SET_PRODUCTION"
+                                                    key0="factory_info"
+                                                    key1="product_info"
+                                                    key2="pcb_number"
+                                                    name="value"
+                                                    value="$SERIAL_NUMBER"/>
+  </step>
+
+  <step name="Save product name" mode="NORMAL">
+    <call module="Product" function="set_parameter" type="SET_PRODUCTION"
+                                                    key0="factory_info"
+                                                    key1="product_info"
+                                                    key2="name"
+                                                    name="value"
+                                                    value="$PRODUCT_NAME"/>
+  </step>
+
+  <step name="Save FVT1 OK status into product" mode="NORMAL">
+    <call module="Product" function="add_ftv" type="FVT1" status="OK" script_version="$SCRIPT_VERSION"/>
+  </step>
+
+  <step name="Save test scripts into product" mode="NORMAL">
+    <call module="Product" function="zip_directory" source_path="SCRIPTS"  destination_path="$TRACE_SCRIPTS"/>
+    <call module="Product" function="upload_file"   pc_path="$TRACE_SCRIPTS" embedded_path="/factory/FVT1_scripts.zip" block_size="4096"/>
+  </step>
+
+  <step name="Save trace file into product" mode="NORMAL">
+    <trace function="save_with_filename" value="$TRACE_FILENAME"/>
+    <call module="Product" function="upload_file" pc_path="$TRACE_FILENAME" embedded_path="/factory/FVT1_trace.txt" block_size="4096"/>
+  </step>
+ 
+  <step name="Increase MAC address" mode="NORMAL">
+    <call module="Product" function="mac_address" command="INCREASE_AND_SAVE"/>
+  </step>
+
+  <step name="Power off board" mode="NORMAL">
+    <call module="Product" function="fixture_control" command="CLOSE_COM"/>
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+  </step>
+  
+</sequence>
+
+<event name="evt_test_failed" sequence="seq_test_failed" mode="NORMAL"/>
+<sequence name="seq_test_failed" pass_event="evt_failed" failed_event="evt_failed" abort_event="evt_failed">
+  <step name="Switch off board after failure" mode="CONTINUE">
+    <call module="Product" function="fixture_control" command="RELEASE_RESET_BUTTON" timeout="$BUTTON_TEST_TIMEOUT"/>
+    <call module="Product" function="fixture_control" command="CLOSE_COM"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+  </step>
+</sequence>
+
+<event name="evt_test_abort" sequence="seq_test_abort" mode="NORMAL"/>
+<sequence name="seq_test_abort" pass_event="evt_abort" failed_event="evt_abort" abort_event="evt_abort">
+  <step name="Switch off board after abort" mode="CONTINUE">
+    <call module="Product" function="fixture_control" command="RELEASE_RESET_BUTTON" timeout="$BUTTON_TEST_TIMEOUT"/>
+    <call module="Product" function="fixture_control" command="CLOSE_COM"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+  </step>
+</sequence>
+
+
+
+

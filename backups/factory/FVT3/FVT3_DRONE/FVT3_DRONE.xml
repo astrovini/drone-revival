@@ -1,0 +1,672 @@
+<module name="Product" dll_name="Mykonos.dll"/>
+
+<include file="FVT3_DRONE\\TRACE.xml"/>
+
+<variable name="$SCRIPT_VERSION" value="V03.15.00"/>
+
+<variable name="$TEST_SEQUENCE"     value="seq_execute"     indexed="true"/>
+<variable name="$TEST_SEQUENCE_PRE" value="seq_execute_pre" indexed="true"/>
+
+<sequence name="seq_execute_pre" pass_event="" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+  <step name="Get test bench software version" mode="NORMAL">
+    <call module="Base"    function="print_version"      script_version="$SCRIPT_VERSION"/>
+    <call module="Product" function="print_version"/>
+    <call module="Product" function="io_board_configure" command="OPEN" value="1"/>
+	<if expression="$ENABLE_CHECK_NETWORK_CONNECTION == 1">
+    <call module="Product" function="server_is_connected" network_path="$NETWORK_PATH_TO_CHECK"/>
+	</if>	
+	<call module="Base"    function="get_date"       year="$YEAR" month="$MONTH" day="$DAY"/>
+	<call module="Base"    function="get_time"       hour="$HOUR" minute="$MINUTE"/>
+  </step>
+  
+</sequence>
+
+<sequence name="seq_execute" pass_event="evt_pass" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+
+  <if expression="$ENABLE_CHECK_DRONE_CONFIG == 1">
+  <step name="Check Drone Configuration" mode="CONTINUE">
+    <call module="Base"    function="select_image" command="RESET"/>
+    <call module="Base"    function="select_image" command="ADD"   value="PRESENCE_USB_CABLE.jpg"/>
+    <call module="Base"    function="select_image" command="SHOW"/>
+    <call module="Base"    function="select_image" command="GET_SELECTION" timeout_ms="20000"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_TEST_FIRMWARE_FLASHING == 1">
+
+  <step name="Reset product in normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="6000"/>
+  </step>
+
+  <step name="Open USB communication" mode="NORMAL">
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Product" function="communication_add"    name="USB_0"/>
+	<call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="5000" result="$LOCAL_RESULT"/>
+	<if expression="$LOCAL_RESULT != 0">
+	<call module="Base"    function="set_variable"       variable="$VERSION_OK" value="0"/>
+	</if>	
+	<if expression="$LOCAL_RESULT == 0">
+    <call module="Product" function="communication_select" name="USB_0"/>
+    <call module="Product" function="check_embedded_software_version" major="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" 
+                                                                      minor="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR"  result="$LOCAL_RESULT"/>
+	<if expression="$LOCAL_RESULT != 0">
+	<call module="Base"    function="set_variable"       variable="$VERSION_OK" value="0"/>
+	</if>	
+	<if expression="$LOCAL_RESULT == 0">
+	<call module="Base"    function="set_variable"       variable="$VERSION_OK" value="1"/>
+	</if>	
+	</if>	
+  </step>
+
+  <if expression="$VERSION_OK == 0">
+  <step name="Open uart com port" mode="NORMAL">
+    <call module="Product" function="uart_console" command="OPEN_COM_PORT"
+                                                   com_port="$DRONE_SERIAL_COM_PORT" 
+                                                   baudrate="$DRONE_SERIAL_BAUDRATE"
+                                                   overspeed="$DRONE_SERIAL_OVERSPEED"/>
+  </step>
+  
+  <step name="Flash embedded firmware in ROM" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Product" function="control_flash_file"  command="INIT"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_TEST_USB_FLASHER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="2000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_TEST_FIRMWARE_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Product" function="control_flash_file"  command="INIT"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_TEST_USB_FLASHER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="2000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_TEST_FIRMWARE_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE"/>
+	</if>
+	<call module="Base"    function="wait_ms"             value="3000"/>
+	</step>
+	
+	<step name="Close uart Com port" mode="NORMAL">
+    <call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+	</step> 
+  </if>
+  </if>		
+  
+  <if expression="$VERSION_OK == 0">
+  <step name="Reset product in normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="6000"/>
+  </step>
+
+  <if expression="$ENABLE_CHECK_FIRMWARE_VERSION == 1">
+  <step name="Open USB communication" mode="NORMAL">
+    <call module="Product" function="communication_add"    name="USB_0"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+	<call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="10000"/>
+    <call module="Product" function="communication_select" name="USB_0"/>
+  </step>
+
+  <step name="Check embedded test software version" mode="NORMAL">
+    <call module="Product" function="check_embedded_software_version" major="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" 
+                                                                      minor="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+	<call module="Product" function="communication_close"  name="USB_0"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+	<call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="10000"/>
+    <call module="Product" function="communication_select" name="USB_0"/>
+    <call module="Product" function="check_embedded_software_version" major="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" 
+                                                                      minor="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR"/>
+	</if>
+  </step>
+  </if>
+  </if>
+
+  <if expression="$ENABLE_USB_KEY_CHECKING == 1">
+  
+  <step name="Connect USB key to Drone" mode="CONTINUE">
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_OFF"/>
+    <call module="Base"    function="select_image" command="RESET"/>
+    <call module="Base"    function="select_image" command="ADD"   value="PLUG_USB_KEY.jpg"/>
+    <call module="Base"    function="select_image" command="SHOW"/>
+    <call module="Base"    function="select_image" command="GET_SELECTION" timeout_ms="180000"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+  </step>
+
+  <step name="Open uart com port" mode="NORMAL">
+    <call module="Product" function="uart_console" command="OPEN_COM_PORT"
+                                                   com_port="$DRONE_SERIAL_COM_PORT" 
+                                                   baudrate="$DRONE_SERIAL_BAUDRATE"
+                                                   overspeed="$DRONE_SERIAL_OVERSPEED"/>
+  </step>
+  
+  <step name="Usb Key Mass storage test" mode="NORMAL">
+    <call module="Product" function="uart_console" command="TEST_KEY_USB_MASS_STORAGE" time_out="15000" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+    <call module="Product" function="uart_console" command="TEST_KEY_USB_MASS_STORAGE" time_out="15000"/>
+	</if>
+  </step>
+
+  <step name="Connect Drone USB to PC" mode="CONTINUE">
+    <call module="Base"    function="select_image" command="RESET"/>
+    <call module="Base"    function="select_image" command="ADD"   value="UNPLUG_USB_KEY.jpg"/>
+    <call module="Base"    function="select_image" command="SHOW"/>
+    <call module="Base"    function="select_image" command="GET_SELECTION" timeout_ms="180000"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+    <call module="Product" function="uart_console" command="TEST_KEY_USB_NO_PRESENCE" time_out="2000"/>
+  </step>
+
+  <step name="Close uart Com port" mode="NORMAL">
+	<call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+  </step> 
+
+  <step name="Open USB communication" mode="NORMAL">
+    <call module="Product" function="communication_add"    name="USB_0"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+	<call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="10000"/>
+    <call module="Product" function="communication_select" name="USB_0"/>
+  </step>
+  
+  </if>  
+  
+  <if expression="$ENABLE_MOTOR_ENABLE_TEST == 1">
+  <step name="Select motor supplier" mode="NORMAL">
+    <call module="Base"    function="select_image" command="RESET"/>
+    <call module="Base"    function="select_image" command="ADD"   value="CONSTAR.jpg"/>
+    <call module="Base"    function="select_image" command="ADD"   value="DM1.jpg"/>
+    <call module="Base"    function="select_image" command="ADD"   value="DM2.jpg"/>
+    <call module="Base"    function="select_image" command="SHOW"/>
+    <call module="Base"    function="select_image" command="GET_SELECTION" read_value="$SUPPLIER_REF" timeout_ms="20000"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+  </step>
+
+  <step name="Enable motor" mode="NORMAL">
+	<call module="Product" function="upload_file" pc_path="BINARY//BLC_v1.31.hex" embedded_path="/tmp/BLC.hex" block_size="4096"/>
+    <call module="Product" function="drone_motor_control" command="FLASH_AND_START_MOTOR" number="1" path="/tmp/BLC.hex"/>
+    <call module="Product" function="drone_motor_control" command="CHECK_PRESENCE_FIRMWARE"  number="1"/>
+    <call module="Product" function="drone_motor_control" command="FLASH_AND_START_MOTOR" number="2" path="/tmp/BLC.hex"/>
+    <call module="Product" function="drone_motor_control" command="CHECK_PRESENCE_FIRMWARE"  number="2"/>
+    <call module="Product" function="drone_motor_control" command="FLASH_AND_START_MOTOR" number="3" path="/tmp/BLC.hex"/>
+    <call module="Product" function="drone_motor_control" command="CHECK_PRESENCE_FIRMWARE"  number="3"/>
+    <call module="Product" function="drone_motor_control" command="FLASH_AND_START_MOTOR" number="4" path="/tmp/BLC.hex"/>
+    <call module="Product" function="drone_motor_control" command="CHECK_PRESENCE_FIRMWARE"  number="4"/>
+    <call module="Product" function="drone_motor_control" command="CHECK_MOTORS_COHERENCE" value="$SUPPLIER_REF"/>
+  </step>
+  </if>
+
+  <if expression="$ENABLE_BUTTON_CHECKING == 1">
+  <step name="Check Reset button" mode="NORMAL">
+    <call module="Product" function="check_gpio_state"   number="87" state="0"/>
+    <call module="Product" function="check_reset_button"   number="87" timeout="20000" path="PICTURES\\BUTTON_RESET.JPG"/>
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_NAV_DATAS_CHECKING == 1">
+  <step name="Test Nav board" mode="NORMAL">
+    <call module="Product" function="upload_file" pc_path="BINARY//MYKONOS2.hex" embedded_path="/tmp/MYKONOS2.hex" block_size="4096"/>
+	<call module="Product" function="drone_nav_board_control" command="FLASH_FIRMWARE" path="/tmp/MYKONOS2.hex"/>
+    <call module="Product" function="drone_nav_board_control" command="INIT"/>
+	<call module="Product" function="drone_nav_board_control" command="GET_FIRMWARE_VERSION"/>
+	<call module="Product" function="drone_nav_board_control" command="GET_PRESSURE_CALIBRATION_DATA"/>
+  <if expression="$ENABLE_ANALYSE == 1">
+	<call module="Product" function="drone_nav_board_control" command="GET_MAGNETO_SELFTEST_RESULT"/>
+  </if>
+  <if expression="$ENABLE_ANALYSE == 0">
+	<call module="Product" function="drone_nav_board_check_value" command="CHECK_MAGNETO_SELFTEST_RESULT"/>
+  </if>
+	<call module="Product" function="drone_nav_board_control" command="FLUSH_BUFFER"/>
+    <call module="Product" function="drone_nav_board_control" command="START_THREAD"/>
+    <call module="Base"    function="wait_ms"                 value="1000"/>
+    <call module="Product" function="drone_nav_board_control" command="START_ACQUISITION"/>
+  <if expression="$ENABLE_ANALYSE == 1">
+    <call module="Base"    function="wait_ms"                 value="100"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_ULTRASOUND_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_AX_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_AY_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_AZ_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_VX_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_VY_VALUE"/>
+    <call module="Product" function="drone_nav_board_control" command="GET_VZ_VALUE"/>
+  </if>
+  <if expression="$ENABLE_ANALYSE == 0">
+    <call module="Base"    function="wait_ms"                 value="100"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_ULTRASOUND_DISTANCE" coefficient="+0.0272" value="+47.00" tolerance="+10.00"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_AX_VALUE" value="+2048" tolerance="+8.00"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_AY_VALUE" value="+2048" tolerance="+8.00"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_AZ_VALUE" value="+3096" tolerance="+8.00"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_VX_VALUE" min="-1000" max="1000"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_VY_VALUE" min="-1000" max="1000"/>
+    <call module="Product" function="drone_nav_board_check_value" command="CHECK_VZ_VALUE" min="-1000" max="1000"/>
+  </if>
+    <call module="Product" function="drone_nav_board_control" command="STOP_THREAD"/>
+  </step>
+  </if>  
+  
+  <if expression="$ENABLE_HORIZONTAL_CAMERA_CHECKING == 1">
+  <step name="Test horizontal cam" mode="NORMAL">
+	<call module="Base"    function="set_variable"       variable="$PATH_A" value="BINARY//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="HorizontalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2=".uyvy"/>
+	<call module="Base"    function="set_variable"       variable="$PATH_B" value="BINARY//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="HorizontalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2=".yuv"/>
+	<call module="Base"    function="set_variable"       variable="$PATH_C" value="PICTURES//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="HorizontalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2=".bmp"/>
+    <call module="Product" function="init_camera"     model="SOC1040" i2c_bus="/dev/i2c-2" resolution="VGA" frame_rate="15"/>
+    <call module="Product" function="start_camera"    video_bus="0"  width="1280" height="720"/>
+    <call module="Product" function="snapshot_camera" video_bus="0"  yuv_path="/tmp/HorizontalCam.uyvy" number="5"/>
+    <call module="Product" function="stop_camera"     video_bus="0"/>
+    <call module="Product" function="download_file"   pc_path="$PATH_A" embedded_path="/tmp/HorizontalCam.uyvy" block_size="2048"/>
+    <call module="Product" function="convert_camera_picture_yuv422_to_yuv420_a" width="1280" height="720" yuv420_path="$PATH_B" yuv422_path="$PATH_A"/>
+    <call module="Product" function="convert_camera_picture_to_bmp" width="1280" height="720" yuv_path="$PATH_B" bmp_path="$PATH_C"/>
+   <if expression="$ENABLE_ANALYSE == 1">
+   <call module="Product" function="get_camera_roll_pan_tilt" width="1280" height="720" yuv_path="$PATH_B" focal="1110" model="SOC1040"/>
+   </if>
+   <if expression="$ENABLE_ANALYSE == 0">
+   <call module="Product" function="check_camera_roll_pan_tilt" width="1280" height="720" yuv_path="$PATH_B" focal="1110" roll_max="3" pan_max="5" tilt_max="5" model="SOC1040"/>
+   </if>
+<!--
+    <call module="Product" function="convert_camera_picture_to_bmp" width="1280" height="720" yuv_path="$PATH_B" bmp_path="PICTURES\\HorizontalCam.bmp"/>
+    <call module="Base"    function="image"           command="SHOW" value="HorizontalCam.bmp"/>
+    <call module="Base"    function="wait_ms"         value="2000"/>
+    <call module="Base"    function="image"           command="HIDE"/>
+-->
+<!--
+    <call module="Product" function="init_camera"     model="SOC1040" i2c_bus="/dev/i2c-2" resolution="VGA" frame_rate="15"/>
+    <call module="Product" function="start_camera"    video_bus="0"  width="1280" height="720"/>
+    <call module="Product" function="snapshot_camera" video_bus="0"  yuv_path="/tmp/HorizontalCam.uyvy" number="5"/>
+    <call module="Product" function="stop_camera"     video_bus="0"/>
+    <call module="Product" function="download_file"   pc_path="BINARY\\HorizontalCam.uyvy" embedded_path="/tmp/HorizontalCam.uyvy" block_size="2048"/>
+    <call module="Product" function="convert_camera_picture_yuv422_to_yuv420_a" width="1280" height="720" yuv420_path="BINARY\\HorizontalCam.yuv" yuv422_path="BINARY\\HorizontalCam.uyvy"/>
+   <if expression="$ENABLE_ANALYSE == 1">
+   <call module="Product" function="get_camera_roll_pan_tilt" width="1280" height="720" yuv_path="BINARY\\HorizontalCam.yuv" focal="1110" model="SOC1040"/>
+   </if>
+   <if expression="$ENABLE_ANALYSE == 0">
+   <call module="Product" function="check_camera_roll_pan_tilt" width="1280" height="720" yuv_path="BINARY\\HorizontalCam.yuv" focal="1110" roll_max="3" pan_max="5" tilt_max="5" model="SOC1040"/>
+   </if>
+    <call module="Product" function="convert_camera_picture_to_bmp" width="1280" height="720" yuv_path="BINARY\\HorizontalCam.yuv" bmp_path="PICTURES\\HorizontalCam.bmp"/>
+-->
+    <!--call module="Base"    function="image"           command="SHOW" value="HorizontalCam.bmp"/>
+    <call module="Base"    function="wait_ms"         value="2000"/>
+    <call module="Base"    function="image"           command="HIDE"/-->
+  </step>
+  </if>
+  
+  <if expression="$ENABLE_VERTICAL_CAMERA_CHECKING == 1">
+  <step name="Test vertical cam" mode="NORMAL">
+	<call module="Base"    function="set_variable"       variable="$PATH_A" value="BINARY//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="VerticalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_A" string2=".uyvy"/>
+	<call module="Base"    function="set_variable"       variable="$PATH_B" value="BINARY//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="VerticalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_B" string2=".yuv"/>
+	<call module="Base"    function="set_variable"       variable="$PATH_C" value="PICTURES//"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="VerticalCam_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$SERIAL_NUMBER"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$MONTH"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$DAY"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$YEAR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="_"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$HOUR"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2="$MINUTE"/>
+	<call module="Base"    function="concatenate_string" string1="$PATH_C" string2=".bmp"/>
+    <call module="Product" function="init_camera"     model="OV7670" i2c_bus="/dev/i2c-3" resolution="VGA" frame_rate="15"/>
+    <call module="Product" function="start_camera"    video_bus="1"  width="320" height="240"/>
+    <call module="Product" function="snapshot_camera" video_bus="1"  yuv_path="/tmp/VerticalCam.uyvy" number="20"/>
+    <call module="Product" function="stop_camera"     video_bus="1"/>
+    <call module="Product" function="download_file"   pc_path="$PATH_A" embedded_path="/tmp/VerticalCam.uyvy" block_size="2048"/>
+    <call module="Product" function="convert_camera_picture_yuv422_to_yuv420_a" width="320" height="240" yuv420_path="$PATH_B" yuv422_path="$PATH_A"/>
+   <call module="Product"  function="convert_camera_picture_to_bmp" width="320" height="240" yuv_path="$PATH_B" bmp_path="$PATH_C"/>
+   <if expression="$ENABLE_ANALYSE == 1">
+    <call module="Product" function="get_camera_roll_pan_tilt" width="320" height="240" yuv_path="$PATH_B" focal="345" model="OV7670"/>
+   </if>
+   <if expression="$ENABLE_ANALYSE == 0">
+    <call module="Product" function="check_camera_blister_presence" width="320" height="240" yuv_path="$PATH_B" focal="345" model="OV7670"/>
+    <call module="Product" function="check_camera_roll_pan_tilt" width="320" height="240" yuv_path="$PATH_B" focal="345" roll_max="3" cx_min="110" cx_max="190" cy_min="85" cy_max="160" model="OV7670"/>
+   </if>
+   <call module="Product" function="save_camera_calibration" path="factory/vertical_camera_calibration.txt"/>
+<!--
+   <call module="Product" function="convert_camera_picture_to_bmp" width="320" height="240" yuv_path="$PATH_B" bmp_path="PICTURES\\VerticalCam.bmp"/>
+   <call module="Base"    function="image"           command="SHOW" value="VerticalCam.bmp"/>
+   <call module="Base"    function="wait_ms"         value="2000"/>
+   <call module="Base"    function="image"           command="HIDE"/>
+-->
+    <!--call module="Product" function="init_camera"     model="OV7670" i2c_bus="/dev/i2c-3" resolution="VGA" frame_rate="15"/>
+    <call module="Product" function="start_camera"    video_bus="1"  width="320" height="240"/>
+    <call module="Product" function="snapshot_camera" video_bus="1"  yuv_path="/tmp/VerticalCam.uyvy" number="10"/>
+    <call module="Product" function="stop_camera"     video_bus="1"/>
+    <call module="Product" function="download_file"   pc_path="BINARY\\VerticalCam.uyvy" embedded_path="/tmp/VerticalCam.uyvy" block_size="2048"/>
+    <call module="Product" function="convert_camera_picture_yuv422_to_yuv420_b" width="320" height="240" yuv420_path="BINARY\\VerticalCam.yuv" yuv422_path="BINARY\\VerticalCam.uyvy"/>
+    <call module="Product" function="convert_camera_picture_to_bmp" width="320" height="240" yuv_path="BINARY\\VerticalCam.yuv" bmp_path="PICTURES\\VerticalCam.bmp"/>
+    <call module="Base"    function="image"           command="SHOW" value="VerticalCam.bmp"/>
+    <call module="Base"    function="wait_ms"         value="2000"/>
+    <call module="Base"    function="image"           command="HIDE"/>
+   <if expression="$ENABLE_ANALYSE == 1">
+    <call module="Product" function="get_camera_roll_pan_tilt" width="320" height="240" yuv_path="BINARY\\VerticalCam.yuv" focal="345" model="OV7670"/>
+   </if>
+   <if expression="$ENABLE_ANALYSE == 0">
+    <call module="Product" function="check_camera_roll_pan_tilt" width="320" height="240" yuv_path="BINARY\\VerticalCam.yuv" focal="345" roll_max="3" pan_max="10" tilt_max="10" model="OV7670"/>
+   </if-->
+  </step>
+  </if>
+  
+  <step name="Save PI number" mode="NORMAL">
+    <call module="Product" function="set_parameter" type="SET_PRODUCTION"
+                                                    key0="factory_info"
+                                                    key1="product_info"
+                                                    key2="pi_number"
+                                                    name="value"
+                                                    value="$SERIAL_NUMBER"/>
+    <call module="Base"    function="set_variable"       variable="$COMMAND" value="'"/>
+    <call module="Base"    function="concatenate_string" string1="$COMMAND" string2="$SERIAL_NUMBER"/>
+    <call module="Base"    function="concatenate_string" string1="$COMMAND" string2="' >factory/serial.txt"/>
+    <call module="Product" function="console"            command="echo" parameters="$COMMAND"/>
+  </step>
+
+  <step name="Save FVT3 OK status into product" mode="NORMAL">
+    <call module="Product" function="add_ftv" type="FVT3" status="OK" script_version="$SCRIPT_VERSION"/>
+  </step>
+
+  <step name="Save test scripts into product" mode="NORMAL">
+    <call module="Product" function="zip_directory" source_path="SCRIPTS"  destination_path="$TRACE_SCRIPTS"/>
+    <call module="Product" function="upload_file"   pc_path="$TRACE_SCRIPTS" embedded_path="/factory/FVT3_scripts.zip" block_size="4096"/>
+  </step>
+
+  <step name="Save trace file into product" mode="NORMAL">
+    <trace function="save_with_filename" value="$TRACE_FILENAME"/>
+    <call module="Product" function="upload_file" pc_path="$TRACE_FILENAME" embedded_path="/factory/FVT3_trace.txt" block_size="4096"/>
+  </step>
+  
+  <if expression="$ENABLE_CUSTOMER_FIRMWARE_FLASHING == 1">
+
+  <step name="Open uart com port" mode="NORMAL">
+    <call module="Product" function="uart_console" command="OPEN_COM_PORT"
+                                                   com_port="$DRONE_SERIAL_COM_PORT" 
+                                                   baudrate="$DRONE_SERIAL_BAUDRATE"
+                                                   overspeed="$DRONE_SERIAL_OVERSPEED"/>
+  </step>
+
+  <step name="Flash embedded firmware in ROM" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Product" function="control_flash_file"  command="INIT"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_CUSTOMER_USB_FLASHER_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+    <call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+	<call module="Base"    function="wait_ms"             value="100"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+    <call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+    <call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+    <call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_CUSTOMER_FIRMWARE_PATH"/>
+    <call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+		<call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+		<call module="Base"    function="wait_ms"            value="1000"/>
+		<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+		<call module="Base"    function="wait_ms"            value="500"/>
+		<call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+		<call module="Product" function="control_flash_file"  command="INIT"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x451"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0xD00E"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_BIN_FILE_PATH"                  path="$BINARY_USB_BOOTLOADER_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_BIN_FILE"/>
+		<call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+		<call module="Base"    function="wait_ms"             value="100"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1111"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_CUSTOMER_USB_FLASHER_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_FLASHER"/>
+		<call module="Product" function="control_flash_file"  command="USB_RELEASE_DEVICE"/>
+		<call module="Base"    function="wait_ms"             value="100"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_VENDOR_ID"                  value="0x19CF"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_PRODUCT_ID"                 value="0x1000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_WRITE_TIMEOUT"              value="5000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_ENUM_TIMEOUT"               value="10000"/>
+		<call module="Product" function="control_flash_file"  command="SET_USB_CODE_ERROR_READING_TIMEOUT" value="5000"/>    
+		<call module="Product" function="control_flash_file"  command="USB_FIND_DEVICE"/>
+		<call module="Product" function="control_flash_file"  command="SET_PLF_FILE_PATH"                  path="$BINARY_CUSTOMER_FIRMWARE_PATH"/>
+		<call module="Product" function="control_flash_file"  command="USB_UPLOAD_PLF_FILE"/>
+	</if>	
+	<call module="Base"    function="wait_ms"             value="3000"/>
+	</step>
+ 
+  <if expression="$ENABLE_CHANGE_SSID == 1">
+
+  <step name="Reset product in normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+  </step>
+
+  <step name="Wait startup frame" mode="NORMAL">
+    <call module="Product" function="get_startup_frame" startup_frame="$STARTUP_FRAME"
+                                                        time_out="60000" result="$LOCAL_RESULT"/>
+	<if expression="$LOCAL_RESULT != 0">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Product" function="get_startup_frame" startup_frame="$STARTUP_FRAME"
+                                                        time_out="60000"/>
+	</if>
+  </step>
+
+  <step name="Open uart console" mode="NORMAL">
+    <call module="Product" function="uart_console" command="OPEN_CONSOLE"
+                                                   time_out="25000" result="$LOCAL_RESULT"/>
+	<if expression="$LOCAL_RESULT != 0">
+	<call module="Product" function="uart_console" command="OPEN_CONSOLE"
+                                                   time_out="25000"/>
+	</if>
+    <call module="Product" function="uart_console" command="MAKE_A_COPY" time_out="2000"/>
+  </step>
+
+  <step name="Change single player SSID" mode="NORMAL">
+    <call module="Product" function="uart_console" command="CHANGE_SSID"
+                                                   type="ssid_single_player"
+                                                   serial_number="$SERIAL_NUMBER"
+                                                   time_out="2000" 
+												   result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT != 0">
+    <call module="Product" function="uart_console" command="CHANGE_SSID"
+                                                   type="ssid_single_player"
+                                                   serial_number="$SERIAL_NUMBER"
+                                                   time_out="2000"/> 
+	</if>
+    <call module="Base"    function="wait_ms"       value="500"/>
+  </step>
+
+  <step name="Change multi player SSID" mode="NORMAL">
+    <call module="Product" function="uart_console" command="CHANGE_SSID"
+                                                   type="ssid_multi_player"
+                                                   serial_number="$SERIAL_NUMBER"
+                                                   time_out="2000"
+												   result="$LOCAL_RESULT"/>
+    <call module="Base"    function="wait_ms"       value="500"/>
+    <if expression="$LOCAL_RESULT != 0">
+    <call module="Product" function="uart_console" command="CHANGE_SSID"
+                                                   type="ssid_multi_player"
+                                                   serial_number="$SERIAL_NUMBER"
+                                                   time_out="2000"/> 
+	</if>
+  </step>
+    
+  <step name="Save SSID changes" mode="NORMAL">
+    <call module="Product" function="uart_console" command="REPLACE_BY_COPY"
+                                                   time_out="2000"/>
+    <call module="Product" function="uart_console" command="SYNCHRONIZE_FS"
+                                                   time_out="5000"/>
+    <call module="Base"    function="wait_ms"      value="1000"/>
+    <call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+  </step>
+  </if>
+
+  </if>
+  
+  <step name="Power off board" mode="NORMAL">
+    <call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+  </step>
+  
+</sequence>
+
+<event name="evt_test_failed" sequence="seq_test_failed" mode="NORMAL"/>
+<sequence name="seq_test_failed" pass_event="evt_failed" failed_event="evt_failed" abort_event="evt_failed">
+  <step name="Switch off board after failure" mode="CONTINUE">
+    <call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+  </step>
+</sequence>
+
+<event name="evt_test_abort" sequence="seq_test_abort" mode="NORMAL"/>
+<sequence name="seq_test_abort" pass_event="evt_abort" failed_event="evt_abort" abort_event="evt_abort">
+  <step name="Switch off board after abort" mode="CONTINUE">
+    <call module="Product" function="uart_console" command="CLOSE_COM_PORT"/>
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+    <call module="Base"    function="select_image" command="HIDE"/>
+  </step>
+</sequence>

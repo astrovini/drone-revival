@@ -1,0 +1,188 @@
+
+<sequence name="seq_build_gui">
+  <call module="Gui" function="add_label"     posx="  10" posy="  10" width="1000" height=" 50" text="$INSTALLER_VERSION" 
+                                                                                                event="" 
+                                                                                                id="id_la_title"
+                                                                                                back_color="0xFF8000"
+                                                                                                text_color="0x000000"
+                                                                                                text_align="6"/>
+  <call module="Gui" function="add_textfield" posx="  10" posy="  70" width="1000" height=" 50" id="id_tf_dll_info" 
+                                                                                                multi_line="true"
+                                                                                                read_only="true"
+                                                                                                font="Lucida Console"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                text_height="10"
+                                                                                                text_width="0"/>
+  <call module="Gui" function="add_label"     posx="  10" posy=" 130" width=" 200" height=" 30" text="SERIAL NUMBER"
+                                                                                                event=""
+                                                                                                id="id_la_serial_number"
+                                                                                                back_color="0xC0C0C0"
+                                                                                                text_color="0x000000"
+                                                                                                font="Arial Black"
+                                                                                                text_height="30"
+                                                                                                text_width="12"
+                                                                                                text_align="2"/>
+  <call module="Gui" function="add_textfield" posx=" 210" posy="  130"width=" 290" height=" 30" id="id_tf_serial_number1"
+                                                                                                multi_line="false"
+                                                                                                read_only="false"
+                                                                                                font="Verdana"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"/>
+  <call module="Gui" function="add_button"    posx=" 520" posy=" 130" width=" 230" height=" 30" text= "START"
+                                                                                                event="evt_start1"
+                                                                                                id=   "id_bt_start1"/>
+  <call module="Gui" function="add_button"    posx=" 780" posy=" 130" width=" 230" height=" 30" text= "STOP"
+                                                                                                event="evt_stop1"
+                                                                                                id=   "id_bt_stop1"/>
+  <call module="Gui" function="add_label"     posx="  10" posy=" 170" width="1000" height=" 50" text="Scan product label"
+                                                                                                event=""
+                                                                                                id="id_label_text1"
+                                                                                                back_color="0xC0C0C0"
+                                                                                                text_color="0x000000"
+                                                                                                text_align="6"/>
+  <call module="Gui" function="add_textfield" posx="  10" posy=" 230" width="1000" height="400" id="id_tf_output1"
+                                                                                                multi_line="true"
+                                                                                                read_only="true"
+                                                                                                font="Lucida Console"
+                                                                                                back_color="0x000000"
+                                                                                                text_color="0x00FF00"
+                                                                                                text_height="10"
+                                                                                                text_width="0"/>
+
+  <call module="Gui" function="add_label"     posx="  10" posy=" 640" width=" 190" height=" 85" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_alert_l1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                text_align="6"/>
+  <call module="Gui" function="add_label"     posx=" 200" posy=" 640" width=" 380" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_OK_text1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 580" posy=" 640" width=" 120" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_OK_value1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="802"/>
+  <call module="Gui" function="add_label"     posx=" 700" posy=" 640" width=" 125" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_OK_units1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 200" posy=" 660" width=" 380" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_NOK_text1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 580" posy=" 660" width=" 120" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_NOK_value1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="802"/>
+  <call module="Gui" function="add_label"     posx=" 700" posy=" 660" width=" 125" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_NOK_units1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 200" posy=" 680" width=" 380" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_ABORTED_text1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 580" posy=" 680" width=" 120" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_ABORTED_value1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="802"/>
+  <call module="Gui" function="add_label"     posx=" 700" posy=" 680" width=" 125" height=" 20" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_ABORTED_units1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 200" posy=" 700" width=" 380" height=" 25" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_YIELD_text1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 580" posy=" 700" width=" 120" height=" 25" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_YIELD_value1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="802"/>
+  <call module="Gui" function="add_label"     posx=" 700" posy=" 700" width=" 125" height=" 25" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_YIELD_units1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                font="Lucida Console"
+                                                                                                text_height="25"
+                                                                                                text_width="15"
+                                                                                                text_align="800"/>
+  <call module="Gui" function="add_label"     posx=" 825" posy=" 640" width=" 200" height=" 85" text=""
+                                                                                                event=""
+                                                                                                id="id_la_stat_alert_r1"
+                                                                                                back_color="0xFFFFFF"
+                                                                                                text_color="0x000000"
+                                                                                                text_align="6"/>
+
+  <call module="Gui" function="create_window" posx="200"  posy="50" width="1030" height="770" title="$INSTALLER_VERSION"/> 
+  
+  <call module="Gui" function="textfield_set_max_length" id="id_tf_serial_number1" length="$BARCODE_LENGTH1"/>
+
+  <call module="Gui" function="set_enable" id="id_bt_start1"         enable="false"/>
+  <call module="Gui" function="set_enable" id="id_bt_stop1"          enable="false"/>
+  <call module="Gui" function="set_enable" id="id_tf_serial_number1" enable="true"/>
+  <call module="Gui" function="set_focus"  id="id_tf_serial_number1"/>
+  <call module="Gui"  function="textfield_add_text" id="id_tf_dll_info" text="$DLL_INFO"/>
+  
+</sequence>
+
+<sequence name="seq_start_gui">
+  <call module="Base" function="event_trigger" name="evt_scan_code1"/>
+</sequence>

@@ -1,0 +1,21 @@
+
+<variable name="$RELOAD1"   value="RELOAD1"/>
+<variable name="$RELOAD2"   value="RELOAD2"/>
+<variable name="$RELOAD3"   value="RELOAD3"/>
+<variable name="$RELOAD4"   value="RELOAD4"/>
+
+<variable name="$INSTALLER_VERSION" value="MYKONOS2-MB FVT1 V02.14"/>
+<variable name="$DLL_INFO"          value=""/>
+
+<sequence name="main"> 
+  <call module="Base"     function="add_version" value="$DLL_INFO" size="50" carriage_return="1"/>
+  <call module="Gui"      function="add_version" value="$DLL_INFO" size="50" carriage_return="1"/>
+  <call module="Product1" function="add_version" value="$DLL_INFO" size="50" carriage_return="1"/>
+  <play sequence="seq_build_gui" as_thread="false"/> 
+  <play sequence="seq_start_gui" as_thread="false"/> 
+  <call module="Gui" function="event_loop"/>
+</sequence>
+
+
+
+

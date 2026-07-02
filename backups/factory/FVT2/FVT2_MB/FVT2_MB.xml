@@ -1,0 +1,545 @@
+<module name="Product" dll_name="Mykonos.dll"/>
+
+<include file="FVT2_MB\\TRACE.xml"/>
+
+<variable name="$SCRIPT_VERSION" value="V02.06.00"/>
+
+<variable name="$TEST_SEQUENCE"     value="seq_execute"     indexed="true"/>
+<variable name="$TEST_SEQUENCE_PRE" value="seq_execute_pre" indexed="true"/>
+
+<sequence name="seq_execute_pre" pass_event="" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+  <step name="Get test bench software version" mode="NORMAL">
+    <call module="Base"    function="print_version"      script_version="$SCRIPT_VERSION"/>
+    <call module="Product" function="print_version"/>
+    <call module="Product" function="io_board_configure" command="OPEN" value="1"/>
+  </step>
+  
+</sequence>
+
+<sequence name="seq_execute" pass_event="evt_pass" failed_event="evt_test_failed" abort_event="evt_test_abort">
+
+  <step name="Init wifi tester" mode="NORMAL">
+    <call module="Product" function="open_wifi_tester" visa_resource="$ANALYSER_VISA_RESOURCE"/>
+    <call module="Base"    function="wait_ms"              value="100"/>
+  </step>
+
+  <step name="Reset product in Normal mode" mode="NORMAL">
+    <call module="Product" function="io_board_configure" command="ALL_OUTPUT_OFF"/>
+    <call module="Base"    function="wait_ms"            value="1000"/>
+	<if expression="$TEST_BENCH_CONFIG == 0">
+	  <call module="Base"    function="set_variable"     variable="$MOTHER_BOARD_CONSUMPTION_COEFFICIENT"       value="0.1"/>
+	  <call module="Product" function="set_digital_output" name="SET_A6"/>
+	  <call module="Product" function="set_digital_output" name="SET_A5"/>
+      <call module="Base"    function="wait_ms" value="100"/>
+	</if>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="500"/>
+    <call module="Product" function="set_digital_output" name="12V_DUT_ON"/>
+    <call module="Base"    function="wait_ms"            value="8000"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_OFF"/>
+  </step>
+
+  <if expression="$ENABLE_CURRENT_CONSUMPTION_CHECKING == 1">
+  <step name="Check Test current consumption" mode="NORMAL">
+    <call module="Product" function="test_current_consumption" name="MOTHER_BOARD" 
+                                                               min="$USB_BOOT_STATE_CONSUMPTION_MIN"
+                                                               max="$USB_BOOT_STATE_CONSUMPTION_MAX"
+                                                               coefficient="$MOTHER_BOARD_CONSUMPTION_COEFFICIENT"/>
+  </step>
+  </if>
+   
+  <step name="Init Atheros chip" mode="NORMAL">
+    <call module="Product" function="init_debug_uart" port="$COM_PORT" baudrate="115200"/>  
+    <call module="Product" function="activate_debug_uart"/>
+    <!--call module="Base"    function="wait_ms" value="100"/-->
+    <call module="Product" function="send_command_debug_uart" command="wifi_testmode.sh"/>
+    <call module="Base"    function="wait_ms" value="3000"/>
+    <call module="Product" function="chip_atheros_control" command="SET_MAC_ADDRESS" mac_address="$MAC_ADDRESS"/>
+    <call module="Base"    function="wait_ms" value="100"/>
+  </step>
+ 
+  <if expression="$ENABLE_TRANSMISSION_MODE_CHECKING == 1">
+
+  <step name="Check Atheros chip Transmission mode at channel 1 antenna 1" mode="NORMAL">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="configure_wifi_tester" command="RECEPTION_MODE" channel="$CHANNEL1" power="20"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $EVM_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($EVM_LOOP_NUMBER - 1)">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($EVM_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="AVERAGE_POWER" number_of_measure="10" antenna="1" canal_number="2" path="$CALIBRATION_PATH"/>
+	<!--call module="Product" function="test_wifi_measure" type="AVERAGE_POWER" min="$POWER_MIN" max="$POWER_MAX"/-->
+	<call module="Product" function="get_wifi_measure" type="AVERAGE_POWER"/>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL1" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>   
+ 
+  <step name="Check Atheros chip Transmission mode at channel 6 antenna 1" mode="NORMAL">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="configure_wifi_tester" command="RECEPTION_MODE" channel="$CHANNEL2" power="20"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $EVM_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($EVM_LOOP_NUMBER - 1)">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($EVM_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="AVERAGE_POWER" number_of_measure="10" antenna="1" canal_number="2" path="$CALIBRATION_PATH"/>
+	<!--call module="Product" function="test_wifi_measure" type="AVERAGE_POWER" min="$POWER_MIN" max="$POWER_MAX"/-->
+	<call module="Product" function="get_wifi_measure" type="AVERAGE_POWER"/>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL2" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>
+
+  <step name="Check Atheros chip Transmission mode at channel 13 antenna 1" mode="NORMAL">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="configure_wifi_tester" command="RECEPTION_MODE" channel="$CHANNEL3" power="20"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $EVM_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="EVM_RMS" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($EVM_LOOP_NUMBER - 1)">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($EVM_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="EVM_RMS" min="$EVM_RMS_MIN" max="$EVM_RMS_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$EVM_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="FREQUENCY_ERROR" number_of_measure="1"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="FREQUENCY_ERROR" min="$FREQUENCY_ERROR_MIN" max="$FREQUENCY_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="OCCUPIED_BANDWIDTH" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="OCCUPIED_BANDWIDTH" min="$OCCUPIED_BANDWIDTH_MIN" max="$OCCUPIED_BANDWIDTH_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="AVERAGE_POWER" number_of_measure="10" antenna="1" canal_number="2" path="$CALIBRATION_PATH"/>
+	<!--call module="Product" function="test_wifi_measure" type="AVERAGE_POWER" min="$POWER_MIN" max="$POWER_MAX"/-->
+	<call module="Product" function="get_wifi_measure" type="AVERAGE_POWER"/>
+	
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $TRANSMISSION_LOOP_NUMBER">
+    <call module="Product" function="chip_atheros_control" command="TRANSMISSION_MODE" channel="$CHANNEL3" antenna="1" rate="11" power="30"/>
+	<call module="Product" function="start_wifi_measure" command="SYMBOL_CLOCK_ERROR" number_of_measure="10"/>
+    <if expression="$LOOP_COUNT == ($TRANSMISSION_LOOP_NUMBER - 1)">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($TRANSMISSION_LOOP_NUMBER - 1)">
+	<call module="Product" function="test_wifi_measure" type="SYMBOL_CLOCK_ERROR" min="$SYMBOL_CLOCK_ERROR_MIN" max="$SYMBOL_CLOCK_ERROR_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$TRANSMISSION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>
+ 
+  </if>
+
+  <if expression="$ENABLE_RECEPTION_MODE_CHECKING == 1">
+  <step name="Check Atheros chip Reception mode at channel n°1 antenna 1" mode="CONTINUE">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL1" antenna="1"/>
+	<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+	<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL1"/>
+    <call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+    <call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+	<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $RECEPTION_LOOP_NUMBER">
+		<call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL1" antenna="1"/>
+		<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL1"/>
+		<call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+		<call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+		<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <if expression="$LOOP_COUNT == ($RECEPTION_LOOP_NUMBER - 1)">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($RECEPTION_LOOP_NUMBER - 1)">
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>
+
+  <step name="Check Atheros chip Reception mode at channel n°2 antenna 1" mode="CONTINUE">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL2" antenna="1"/>
+	<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL2"/>
+    <call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+    <call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+	<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $RECEPTION_LOOP_NUMBER">
+		<call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL2" antenna="1"/>
+		<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL2"/>
+		<call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+		<call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+		<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <if expression="$LOOP_COUNT == ($RECEPTION_LOOP_NUMBER - 1)">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($RECEPTION_LOOP_NUMBER - 1)">
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>
+  
+  <step name="Check Atheros chip Reception mode at channel n°3 antenna 1" mode="CONTINUE">
+    <calculate expression="0 + 0" result="$LOOP_COUNT"/>
+    <call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL3" antenna="1"/>
+	<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL3"/>
+    <call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+    <call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+	<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <while expression="$LOOP_COUNT < $RECEPTION_LOOP_NUMBER">
+		<call module="Product" function="chip_atheros_control" command="RECEPTION_MODE" channel="$CHANNEL3" antenna="1"/>
+		<call module="Product" function="configure_wifi_tester" command="START_TRANSMISSION_MODE" power="$RECEPTION_POWER" channel="$CHANNEL3"/>
+		<call module="Product" function="chip_atheros_control" command="GET_REPORT_RECEPTION"/>
+		<call module="Product" function="receive_data_debug_uart" time_out="1000" frame="$RECEPTION_REPORT" />
+		<call module="Product" function="configure_wifi_tester" command="STOP_TRANSMISSION_MODE"/>
+    <if expression="$LOOP_COUNT == ($RECEPTION_LOOP_NUMBER - 1)">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX"/>
+	</if>
+    <if expression="$LOOP_COUNT < ($RECEPTION_LOOP_NUMBER - 1)">
+		<call module="Product" function="chip_atheros_check_reception" frame="$RECEPTION_REPORT" tolerance="$RECEPTION_TOLERANCE_MAX" result="$LOCAL_RESULT"/>
+    <if expression="$LOCAL_RESULT == 0">
+    <calculate expression="$RECEPTION_LOOP_NUMBER + 0" result="$LOOP_COUNT"/>
+	</if>
+    <if expression="$LOCAL_RESULT != 0">
+    <calculate expression="$LOOP_COUNT + 1" result="$LOOP_COUNT"/>
+	</if>
+	</if>
+    </while>
+  </step>
+  </if>
+
+   <step name="Open USB communication" mode="NORMAL">
+    <call module="Product" function="communication_add"    name="USB_0"/>
+	<call module="Product" function="set_digital_output" name="PWR_5V_DUT_ON"/>
+	<call module="Product" function="communication_open"   name="USB_0" vendor_id="0x19CF" product_id="0x1000" timeout="10000"/>
+    <call module="Product" function="communication_select" name="USB_0"/>
+  </step>
+
+  <step name="Get embedded test software version" mode="NORMAL">
+    <call module="Product" function="get_embedded_software_version"/>
+  </step> 
+  
+  <step name="Save FVT2 OK status into product" mode="NORMAL">
+    <call module="Product" function="add_ftv" type="FVT2" status="OK" script_version="$SCRIPT_VERSION"/>
+  </step>
+
+  <step name="Save test scripts into product" mode="NORMAL">
+    <call module="Product" function="zip_directory" source_path="SCRIPTS"  destination_path="$TRACE_SCRIPTS"/>
+    <call module="Product" function="upload_file"   pc_path="$TRACE_SCRIPTS" embedded_path="/factory/FVT2_scripts.zip" block_size="4096"/>
+  </step>
+
+  <step name="Save trace file into product" mode="NORMAL">
+    <trace function="save_with_filename" value="$TRACE_FILENAME"/>
+    <call module="Product" function="upload_file" pc_path="$TRACE_FILENAME" embedded_path="/factory/FVT2_trace.txt" block_size="4096"/>
+  </step> 
+ 
+  <step name="Power off board" mode="NORMAL">
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+ 	<call module="Product" function="close_wifi_tester"/>
+   <call module="Product" function="close_debug_uart"/>  
+  </step>
+
+</sequence>
+
+<event name="evt_test_failed" sequence="seq_test_failed" mode="NORMAL"/>
+<sequence name="seq_test_failed" pass_event="evt_failed" failed_event="evt_failed" abort_event="evt_failed">
+  <step name="Switch off board after failure" mode="CONTINUE">
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+	<call module="Product" function="close_wifi_tester"/>
+    <call module="Product" function="close_debug_uart"/>  
+  </step>
+</sequence>
+
+<event name="evt_test_abort" sequence="seq_test_abort" mode="NORMAL"/>
+<sequence name="seq_test_abort" pass_event="evt_abort" failed_event="evt_abort" abort_event="evt_abort">
+  <step name="Switch off board after abort" mode="CONTINUE">
+    <call module="Product" function="communication_close"  name="USB_0"/>
+    <call module="Base"    function="wait_ms"              value="1000"/>
+    <call module="Product" function="io_board_configure"   command="ALL_OUTPUT_OFF"/>
+    <call module="Product" function="io_board_configure"   command="CLOSE"/>
+	<call module="Product" function="close_wifi_tester"/>
+    <call module="Product" function="close_debug_uart"/>  
+  </step>
+</sequence>
+
+
+
+

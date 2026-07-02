@@ -1,0 +1,104 @@
+
+<variable name="$TRACEFILE_CUSTOMER"           value="PARROT"/>
+<variable name="$TRACEFILE_TEST_PROCESS"       value="FVT1MB"/>
+<variable name="$TRACEFILE_SITE"               value="11"/>
+<variable name="$TRACEFILE_TESTER_NAME"        value="HUAPARROTFVT291"/>
+<variable name="$TRACEFILE_BOARD_STYLE"        value="MYKONOS2"/>
+<variable name="$TRACEFILE_ASSEMBLY_NUMBER"    value="PI040254"/>
+<variable name="$TRACEFILE_ASSEMBLY_REVISION"  value="AA"/>
+<variable name="$TRACEFILE_LINE"               value="BAY31"/>
+<variable name="$TRACEFILE_SOFTWARE_REVISION"  value="V2.14"/>
+<variable name="$TRACEFILE_FIRMWARE_REVISION"  value="N/A"/>
+<variable name="$TRACEFILE_FIXTURE_ID"		   value="FVT1_1"/>
+
+<!-- HMI settings -->
+<variable name="$BARCODE_PATTERN"       value=""/>
+<variable name="$BARCODE_LENGTH"        value="10"/>
+<variable name="$TRACE_FILENAME"        value="TRACES\\TESTER_1\\trace.txt"/>
+<variable name="$TRACE_SCRIPTS"         value="TRACES\\TESTER_1\\scripts.zip"/>
+<variable name="$TRACE_DIRECTORY"       value="c:\\data\\"/>
+<variable name="$TRACE_COPY_DIRECTORY"  value="d:\\data\\"/>
+<variable name="$DEF_TRACE_DIRECTORY"	value="C:\\PARROT\Parrotdatafiles\\"/>
+<variable name="$DEF1_TRACE_DIRECTORY"	value="D:\\PARROTDATAFILESBACKUP1\\"/>
+
+
+<!-- Test enabling control -->
+<variable name="$ENABLE_CHECK_FIXTURE_STATUS_CLOSED"        value="0"/>
+<variable name="$ENABLE_CURRENT_CONSUMPTION_CHECKING"       value="1"/>
+<variable name="$ENABLE_VOLTAGE_LEVEL_CHECKING"             value="1"/>
+<variable name="$ENABLE_BUTTON_CHECKING"		            value="1"/>
+<variable name="$ENABLE_UART_NAV_BOARD_CHECKING"            value="1"/>
+<variable name="$ENABLE_UART_MOTOR_1_CHECKING"              value="1"/>
+<variable name="$ENABLE_UART_MOTOR_2_CHECKING"              value="1"/>
+<variable name="$ENABLE_UART_MOTOR_3_CHECKING"              value="1"/>
+<variable name="$ENABLE_UART_MOTOR_4_CHECKING"              value="1"/>
+<variable name="$ENABLE_MOTOR_FAULT_SIGNAL_CHECKING"        value="1"/>
+<variable name="$ENABLE_WIFI_MODULE_COMMUNICATION_CHECKING" value="1"/>
+<variable name="$ENABLE_26_MHZ_QUARTZ_CHECKING"             value="1"/>
+
+<!-- Button test settings -->
+<!-- automatic:1 or manual:0 -->
+<variable name="$ENABLE_AUTOMATIC_BUTTON_CHECKING"          value="0"/>
+<variable name="$BUTTON_TEST_TIMEOUT"			            value="1000"/>
+
+<!-- FVT1 Variable -->
+<variable name="$PATH"                   value=""/>
+<variable name="$COMMAND"                value=""/>
+<variable name="$LOCAL_RESULT"           value="0"/>
+<variable name="$26MHZ_QUARTZ_FREQUENCY" value=""/>
+<variable name="$MAC_ADDRESS"            value=""/>
+
+<!-- Fixture UART communication settings -->
+<variable name="$FIXTURE_COM_PORT"       value="COM1"/>
+<variable name="$FIXTURE_BAUDRATE"       value="9600"/>
+
+<!-- Nav board uart communication settings-->
+<variable name="$NAV_BOARD_COM_PORT"       value="COM19"/>
+<variable name="$NAV_BOARD_BAUDRATE"       value="115200"/>
+<variable name="$NAV_BOARD_OVERSPEED"      value="1.000"/>
+
+<!-- General settings -->
+<variable name="$PRODUCT_NAME"                         value="Mykonos2"/>
+<variable name="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" value="1"/>
+<variable name="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR" value="6"/>
+
+<!-- Binaries path settings -->
+<variable name="$BINARY_USB_BOOTLOADER_PATH"         value="BINARY\\mykonos2_inst_usb_bootldr.bin"/>
+<variable name="$BINARY_PROD_USB_FLASHER_PATH"   value="BINARY\\mykonos2_prod_installer_installer.plf"/>
+<variable name="$BINARY_PROD_FIRMWARE_PATH"      	 value="BINARY\\mykonos2_test_software_rom.plf"/>
+
+<!-- Reset button timeout setting -->
+<variable name="$RESET_BUTTON_TIMEOUT" 				value="40000"/>
+
+<!-- Current consumption settings -->
+<variable name="$MOTHER_BOARD_CONSUMPTION_COEFFICIENT" value="0.010"/>
+<variable name="$NORMAL_STATE_CONSUMPTION_MIN"       value="+30.00"/>
+<variable name="$NORMAL_STATE_CONSUMPTION_MAX"       value="+80.00"/>
+
+<!-- Voltage level settings -->
+<variable name="$VOLTAGE_5V_MIN"             value="4.750"/>
+<variable name="$VOLTAGE_5V_MAX"             value="5.250"/>
+
+<variable name="$VOLTAGE_VIN_3V6_MIN"             value="3.480"/>
+<variable name="$VOLTAGE_VIN_3V6_MAX"             value="3.720"/>
+
+<variable name="$VOLTAGE_VDD1_IVA_MIN"                   value="1.100"/>
+<variable name="$VOLTAGE_VDD1_IVA_MAX"                   value="1.300"/>
+
+<variable name="$VOLTAGE_VDD2_CORE_MIN"          value="1.100"/>
+<variable name="$VOLTAGE_VDD2_CORE_MAX"          value="1.300"/>
+
+<variable name="$VOLTAGE_VIO_1V8_MIN"              value="1.700"/>
+<variable name="$VOLTAGE_VIO_1V8_MAX"              value="1.900"/>
+
+<variable name="$VOLTAGE_VPLL1_MIN"             value="1.700"/>
+<variable name="$VOLTAGE_VPLL1_MAX"             value="1.900"/>
+
+<variable name="$VOLTAGE_VMMC1_MIN"                value="2.900"/>
+<variable name="$VOLTAGE_VMMC1_MAX"                value="3.100"/>
+
+<variable name="$VOLTAGE_3V3_WIFI_MIN"                value="3.200"/>
+<variable name="$VOLTAGE_3V3_WIFI_MAX"                value="3.400"/>
+
+<variable name="$VOLTAGE_1V8_WIFI_MIN"                value="1.700"/>
+<variable name="$VOLTAGE_1V8_WIFI_MAX"                value="1.900"/>

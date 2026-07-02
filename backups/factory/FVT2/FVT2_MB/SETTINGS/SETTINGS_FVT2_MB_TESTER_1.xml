@@ -1,0 +1,72 @@
+
+<variable name="$TRACEFILE_CUSTOMER"           				value="Parrot"/>
+<variable name="$TRACEFILE_TEST_PROCESS"       				value="FVT2MB"/>
+<variable name="$TRACEFILE_SITE"               				value="11"/>
+<variable name="$TRACEFILE_TESTER_NAME"        				value="Huaparrotfvt496"/>
+<variable name="$TRACEFILE_BOARD_STYLE"        				value="Mykonos2"/>
+<variable name="$TRACEFILE_ASSEMBLY_NUMBER"    				value="PI040254"/>
+<variable name="$TRACEFILE_ASSEMBLY_REVISION"  				value="AA"/>
+<variable name="$TRACEFILE_LINE"               				value="Bay31"/>
+<variable name="$TRACEFILE_SOFTWARE_REVISION"  				value="V2.06"/>
+<variable name="$TRACEFILE_FIRMWARE_REVISION"  				value="N/A"/>
+
+<!-- HMI settings -->
+<variable name="$BARCODE_PATTERN"       					value=""/>
+<variable name="$BARCODE_LENGTH"        					value="10"/>
+<variable name="$TRACE_FILENAME"        					value="TRACES\\TESTER_1\\trace.txt"/>
+<variable name="$TRACE_SCRIPTS"         					value="TRACES\\TESTER_1\\scripts.zip"/>
+<variable name="$TRACE_DIRECTORY"       					value="C:\\DATA\\"/>
+<variable name="$TRACE_COPY_DIRECTORY"  					value="D:\\DATA\\"/>
+<variable name="$DEF_TRACE_DIRECTORY"   					value="C:\\PARROT\\PARROTDATAFILES\\"/>
+
+<!-- Hardware config -->
+<variable name="$TEST_BENCH_CONFIG"			            	value="1"/>
+
+<!-- Analyser config -->
+<variable name="$ANALYSER_VISA_RESOURCE"	            	value="USB0::0x0957::0x11FF::MY52070152::INSTR"/>
+<variable name="$CALIBRATION_PATH"				            value="C:\PARROT\MYKONOS2_MB\FVT2\WIFICalibrationData.ini"/>
+
+<variable name="$CHANNEL1"					            	value="1"/>
+<variable name="$CHANNEL2"					            	value="6"/>
+<variable name="$CHANNEL3"					            	value="13"/>
+
+<!-- COM config -->
+<variable name="$COM_PORT"					            	value="COM25"/>
+
+<!-- Test enabling control -->
+<variable name="$ENABLE_ANALYSE"			            	value="0"/>
+
+<variable name="$ENABLE_CURRENT_CONSUMPTION_CHECKING"       value="1"/>
+<variable name="$ENABLE_TRANSMISSION_MODE_CHECKING"         value="1"/>
+<variable name="$ENABLE_RECEPTION_MODE_CHECKING"            value="1"/>
+
+<!-- FVT2 Variable -->
+<variable name="$EVM_LOOP_NUMBER"	  						value="2"/>
+<variable name="$TRANSMISSION_LOOP_NUMBER"					value="2"/>
+<variable name="$RECEPTION_LOOP_NUMBER"						value="2"/>
+<variable name="$LOOP_COUNT"		  						value="0"/>
+<variable name="$MAC_ADDRESS"            					value="00:26:7E:30:A7:0C"/>
+<variable name="$LOCAL_RESULT"           					value="0"/>
+<variable name="$RECEPTION_POWER"            				value="-60"/>
+<variable name="$RECEPTION_REPORT"            				value=""/>
+
+<!-- Limits -->
+<variable name="$EVM_RMS_MIN"            					value="0"/>
+<!--variable name="$EVM_RMS_MAX"            					value="9.0"/-->
+<variable name="$EVM_RMS_MAX"            					value="5.6"/>
+<variable name="$POWER_MIN"            						value="12"/>
+<variable name="$POWER_MAX"            						value="16"/>
+<variable name="$FREQUENCY_ERROR_MIN"            			value="-25"/>
+<variable name="$FREQUENCY_ERROR_MAX"            			value="25"/>
+<variable name="$OCCUPIED_BANDWIDTH_MIN"            		value="0"/>
+<variable name="$OCCUPIED_BANDWIDTH_MAX"            		value="26000000"/>
+<variable name="$SYMBOL_CLOCK_ERROR_MIN"            		value="-25"/>
+<variable name="$SYMBOL_CLOCK_ERROR_MAX"            		value="25"/>
+<variable name="$RECEPTION_TOLERANCE_MAX"           		value="10"/>
+
+<!-- Current consumption settings -->
+<variable name="$USB_BOOT_STATE_CONSUMPTION_MIN"       		value="+40.00"/>
+<variable name="$USB_BOOT_STATE_CONSUMPTION_MAX"       		value="+90.00"/>
+<variable name="$MOTHER_BOARD_CONSUMPTION_COEFFICIENT" 		value="0.010"/>
+
+

@@ -1,0 +1,26 @@
+
+<sequence name="seq_fill_trace">
+  <trace function="clear" value=""/>
+  <trace function="set_serial_number"     value="$SERIAL_NUMBER"/>
+  <trace function="set_test_customer"     value="$TRACEFILE_CUSTOMER"/>
+  <trace function="set_test_process"      value="$TRACEFILE_TEST_PROCESS"/>
+  <trace function="set_site"              value="$TRACEFILE_SITE"/>
+  <trace function="set_tester_name"       value="$TRACEFILE_TESTER_NAME"/>
+  <trace function="set_board_style"       value="$TRACEFILE_BOARD_STYLE"/>
+  <trace function="set_assembly_number"   value="$TRACEFILE_ASSEMBLY_NUMBER"/>
+  <trace function="set_assembly_revision" value="$TRACEFILE_ASSEMBLY_REVISION"/>
+  <trace function="set_line"              value="$TRACEFILE_LINE"/>
+  <trace function="set_software_revision" value="$TRACEFILE_SOFTWARE_REVISION"/>
+  <trace function="set_firmware_revision" value="$TRACEFILE_FIRMWARE_REVISION"/>
+  <trace function="set_fixture_id"		  value="$TRACEFILE_FIXTURE_ID"/>
+  <trace function="set_output"            value="id_tf_output"/>
+  <trace function="set_info"              value="id_label_text"/>
+</sequence>
+
+<sequence name="seq_save_trace">
+  <trace function="save" value="$TRACE_DIRECTORY"/>
+  <trace function="save" value="$TRACE_COPY_DIRECTORY"/>
+  <trace function="save_via_full_directory" value="$DEF_TRACE_DIRECTORY"/>
+  <trace function="save_via_full_directory" value="$DEF1_TRACE_DIRECTORY"/>
+</sequence>
+

@@ -1,0 +1,73 @@
+
+<variable name="$TRACEFILE_CUSTOMER"           value="PARROT"/>
+<variable name="$TRACEFILE_TEST_PROCESS"       value="FVT3"/>
+<variable name="$TRACEFILE_SITE"               value="11"/>
+<variable name="$TRACEFILE_TESTER_NAME"        value="HUAPARROTFVT364"/>
+<variable name="$TRACEFILE_BOARD_STYLE"        value="Mykonos2"/>
+<variable name="$TRACEFILE_ASSEMBLY_NUMBER"    value="PI040254"/>
+<variable name="$TRACEFILE_ASSEMBLY_REVISION"  value="AD"/>
+<variable name="$TRACEFILE_LINE"               value="Bay31"/>
+<variable name="$TRACEFILE_SOFTWARE_REVISION"  value="V3.15"/>
+<variable name="$TRACEFILE_FIRMWARE_REVISION"  value="2.1.18"/>
+
+<!-- HMI settings -->
+<variable name="$BARCODE_PATTERN"       value=""/>
+<variable name="$BARCODE_LENGTH"        value="18"/>
+<variable name="$TRACE_FILENAME"        value="TRACES\\TESTER_1\\trace.txt"/>
+<variable name="$TRACE_SCRIPTS"         value="TRACES\\TESTER_1\\scripts.zip"/>
+<variable name="$TRACE_DIRECTORY"       value="C:\\data\\"/>
+<variable name="$TRACE_COPY_DIRECTORY"  value="d:\\data\\"/>
+<variable name="$DEF_TRACE_DIRECTORY"   value="C:\\PARROT\\PARROTDATAFILES\\"/>
+<variable name="$DEF1_TRACE_DIRECTORY"   value="D:\\parrotdatafilesbackup\\"/>
+<variable name="$NETWORK_PATH_TO_CHECK" value="P:"/>
+
+<!-- Test enabling control -->
+<variable name="$ENABLE_ANALYSE"                    		value="0"/>
+
+<variable name="$ENABLE_CHECK_NETWORK_CONNECTION"	        value="1"/>
+<variable name="$ENABLE_CHECK_DRONE_CONFIG"	        		value="0"/>
+<variable name="$ENABLE_TEST_FIRMWARE_FLASHING"		        value="1"/>
+<variable name="$ENABLE_CHECK_FIRMWARE_VERSION"		        value="0"/>
+<variable name="$ENABLE_USB_KEY_CHECKING"			        value="1"/>
+<variable name="$ENABLE_MOTOR_ENABLE_TEST"			        value="0"/>
+<variable name="$ENABLE_BUTTON_CHECKING"                    value="0"/>
+<variable name="$ENABLE_NAV_DATAS_CHECKING"                 value="1"/>
+<variable name="$ENABLE_HORIZONTAL_CAMERA_CHECKING"         value="1"/>
+<variable name="$ENABLE_VERTICAL_CAMERA_CHECKING"           value="1"/>
+
+<variable name="$ENABLE_CUSTOMER_FIRMWARE_FLASHING"         value="1"/>
+<variable name="$ENABLE_CHANGE_SSID"  				        value="1"/>
+
+<!-- Binaries path settings -->
+<variable name="$BINARY_USB_BOOTLOADER_PATH"         value="BINARY\\ardrone2_inst_usb_bootldr.bin"/>
+<variable name="$BINARY_CUSTOMER_USB_FLASHER_PATH"   value="BINARY\\ardrone2_installer_installer_v2.1.18.plf"/>
+<variable name="$BINARY_CUSTOMER_FIRMWARE_PATH"      value="BINARY\\ardrone2_installer_payload_v2.1.18.plf"/>
+<variable name="$BINARY_TEST_USB_FLASHER_PATH"		 value="BINARY\\mykonos2_prod_installer_non_erasing_installer.plf"/>
+<variable name="$BINARY_TEST_FIRMWARE_PATH"		     value="BINARY\\mykonos2_test_software_rom_factory_save.plf"/>
+
+<!-- Drone uart communication settings-->
+<variable name="$DRONE_SERIAL_COM_PORT"       value="COM13"/>
+<variable name="$DRONE_SERIAL_BAUDRATE"       value="115200"/>
+<variable name="$DRONE_SERIAL_OVERSPEED"      value="1.000"/>
+
+<!-- FVT4 Variable -->
+<variable name="$YEAR"     				value=""/>
+<variable name="$MONTH"  				value=""/>
+<variable name="$DAY"     				value=""/>
+<variable name="$HOUR"  				value=""/>
+<variable name="$MINUTE"				value=""/>
+<variable name="$PATH_A"     			value=""/>
+<variable name="$PATH_B"     			value=""/>
+<variable name="$PATH_C"     			value=""/>
+<variable name="$COMMAND"  				value=""/>
+<variable name="$LOCAL_RESULT"          value="0"/>
+<variable name="$SUPPLIER_REF"			value=""/>
+<variable name="$STARTUP_FRAME"			value=""/>
+<variable name="$VERSION_OK"			value="0"/>
+
+
+<!-- General settings -->
+<variable name="$EMBEDDED_TEST_SOFTWARE_VERSION_MAJOR" value="1"/>
+<variable name="$EMBEDDED_TEST_SOFTWARE_VERSION_MINOR" value="9"/>
+
+
