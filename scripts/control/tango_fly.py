@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Tango -> drone bridge: fly the AR.Drone 2.0 with the TBS Tango 2.
+"""Fly the AR.Drone 2.0 with a TBS Tango 2 **or the laptop keyboard**.
 
 Path A, the payoff: reads the Tango as a USB joystick (like tango_read.py) and
 drives the drone over AT commands (via at_link.Drone). A small arm/emergency
-state machine sits in the middle so the radio behaves safely.
+state machine sits in the middle so the radio behaves safely. `--keyboard`
+provides the same control from the laptop keyboard (no Tango needed) — it maps
+keys to the identical 8-axis vector and feeds the SAME Bridge / logging / telemetry.
 
 Sticks (Mode 2, TAER):   axis0 throttle · axis1 roll · axis2 pitch · axis3 yaw
 Switches (as axes):      A(4) arm · B(5) takeoff/land · C(6) mode · D(7) EMERGENCY
+Keyboard (--keyboard):   WASD = throttle/yaw · arrows = pitch/roll · Enter=arm ·
+                         T=takeoff · L=land · Space=EMERGENCY · Shift=full · Esc=quit
 
 State machine:
     SAFE-LOCK : arm was ON at startup -> refuse to arm until you toggle it OFF once
@@ -30,7 +34,8 @@ Test locally first (no drone, no WiFi) — two terminals:
 
 Real drone (join its WiFi, PROPS OFF for first tests):
     python3 scripts/control/tango_fly.py --host 192.168.1.1 --log
-    python3 scripts/control/tango_fly.py --host 192.168.1.1 --telemetry --log   # + motor PWM
+    python3 scripts/control/tango_fly.py --host 192.168.1.1 --telemetry --log            # Tango + motor PWM
+    python3 scripts/control/tango_fly.py --host 192.168.1.1 --keyboard --telemetry --log # keyboard + PWM
 """
 
 import argparse
@@ -53,7 +58,9 @@ SW_ARM, SW_TAKEOFF, SW_MODE, SW_EMERG = 4, 5, 6, 7
 DEADBAND = 0.08      # ignore tiny center jitter
 EXPO = 0.30          # 0 = linear, 1 = very soft center
 RATE_HZ = 30
+KB_DEFLECT = 0.6     # keyboard: deflection while a direction key is held (hold Shift for full 1.0)
 # Flip any of these to True if a control moves the wrong way on the real drone.
+# (These apply to BOTH the Tango and the keyboard, since both feed the same shape().)
 REVERSE_ROLL = False
 REVERSE_PITCH = False
 REVERSE_YAW = False
@@ -255,6 +262,110 @@ def run_real(host, port, log, telemetry=False):
         pygame.quit()
 
 
+KB_HELP = [
+    "Keyboard control (Mode-2 layout) — PROPS OFF for testing",
+    "Left  hand  WASD :  W/S throttle up/down    A/D yaw left/right",
+    "Right hand arrows:  UP/DOWN pitch fwd/back  LEFT/RIGHT roll",
+    "Enter: ARM / disarm     T: takeoff     L: land",
+    "Space: EMERGENCY cut (toggle)   Shift: full deflection   Esc/Q: quit",
+    "Hold a key to deflect; release to re-center.",
+]
+
+
+def _keyboard_axes(pygame, keys, arm_on, emerg_on):
+    """Map the currently-held keys to the same 8-axis list the Tango produces (raw stick positions,
+    before shape()/REVERSE_*). Sign convention matches at_link.Drone.move()."""
+    mag = 1.0 if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) else KB_DEFLECT
+
+    def pair(neg, pos):                                  # +mag while `pos` held, -mag while `neg` held
+        return (mag if keys[pos] else 0.0) - (mag if keys[neg] else 0.0)
+
+    throttle = pair(pygame.K_s, pygame.K_w)              # W = climb (+gaz), S = descend
+    yaw = pair(pygame.K_a, pygame.K_d)                   # D = yaw right (+)
+    pitch = pair(pygame.K_UP, pygame.K_DOWN)             # UP = forward (-pitch), DOWN = back (+)
+    roll = pair(pygame.K_LEFT, pygame.K_RIGHT)           # RIGHT = roll right (+)
+    b = 1.0 if keys[pygame.K_t] else -1.0 if keys[pygame.K_l] else 0.0   # 3-pos takeoff/land switch
+    arm = 1.0 if arm_on else -1.0
+    emerg = 1.0 if emerg_on else -1.0
+    return [throttle, roll, pitch, yaw, arm, b, 0.0, emerg]
+
+
+def run_keyboard(host, port, log, telemetry=False):
+    """Fly with the laptop keyboard instead of the Tango. Opens a small pygame window that must have
+    focus to capture keys; feeds the SAME Bridge / logging / telemetry as run_real."""
+    import pygame
+    pygame.init()
+    screen = pygame.display.set_mode((580, 210))
+    pygame.display.set_caption("AR.Drone keyboard control")
+    font = pygame.font.SysFont("Menlo", 15)
+    clock = pygame.time.Clock()
+
+    print(f"Keyboard control -> drone {host}:{port}   (click the pop-up window to give it focus)")
+    if log:
+        print(f"Logging to {log.path}")
+    for line in KB_HELP:
+        print("  " + line)
+    print()
+
+    drone = Drone(host, port, verbose=False)
+    last_nd = None
+    ndsock = _start_telemetry(drone, host) if telemetry else None
+
+    bridge = Bridge(drone, arm_high_at_start=False)      # keyboard always starts disarmed
+    arm_on = emerg_on = False
+
+    def draw(state, act, tele):
+        screen.fill((16, 18, 22))
+        y = 6
+        for line in KB_HELP:
+            screen.blit(font.render(line, True, (150, 160, 170)), (8, y)); y += 18
+        y += 6
+        screen.blit(font.render(f"state: {state}   arm: {'ON' if arm_on else 'off'}",
+                                True, (240, 240, 120)), (8, y)); y += 18
+        screen.blit(font.render(f"send:  {act}", True, (120, 220, 160)), (8, y)); y += 18
+        if tele:
+            screen.blit(font.render(f"motors:{tele}", True, (120, 200, 240)), (8, y))
+        pygame.display.flip()
+
+    running = True
+    try:
+        while running:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    running = False
+                elif e.type == pygame.KEYDOWN:
+                    if e.key == pygame.K_RETURN:
+                        arm_on = not arm_on
+                    elif e.key == pygame.K_SPACE:
+                        emerg_on = not emerg_on
+                        if emerg_on:
+                            arm_on = False               # so releasing emergency returns to DISARMED
+                    elif e.key in (pygame.K_ESCAPE, pygame.K_q):
+                        running = False
+            ax = _keyboard_axes(pygame, pygame.key.get_pressed(), arm_on, emerg_on)
+            state, act, pcmd = bridge.update(ax)
+            if ndsock is not None:
+                nd = _drain_navdata(ndsock)
+                if nd:
+                    last_nd = nd
+            if log:
+                log.row(state, act, ax, pcmd, last_nd)
+            tele = _tele_str(ndsock, last_nd)
+            draw(state, act, tele)
+            sys.stdout.write("\r\033[2K" + f"[{state:<9}] arm:{'ON ' if arm_on else 'off'} "
+                             f"send: {act}{tele}")
+            sys.stdout.flush()
+            clock.tick(RATE_HZ)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        drone.land()                                     # always leave the drone landed
+        sys.stdout.write("\nlanded / exit\n")
+        if log:
+            print(f"log saved: {log.close()}")
+        pygame.quit()
+
+
 def _axes(throttle=-1.0, roll=0.0, pitch=0.0, yaw=0.0, arm=-1.0, b=0.0, mode=0.0, emerg=-1.0):
     return [throttle, roll, pitch, yaw, arm, b, mode, emerg]
 
@@ -295,14 +406,19 @@ def main():
     p.add_argument("--host", default="127.0.0.1", help="drone IP (192.168.1.1) or 127.0.0.1 to test")
     p.add_argument("--port", type=int, default=5556)
     p.add_argument("--sim", action="store_true", help="run a scripted stick sequence (no joystick)")
+    p.add_argument("--keyboard", action="store_true",
+                   help="fly with the laptop keyboard instead of the Tango (opens a small focus window)")
     p.add_argument("--log", action="store_true", help="write a timestamped CSV to data/radio/")
     p.add_argument("--telemetry", action="store_true",
                    help="also read navdata (attitude + motor PWM) over the same link and log it")
     a = p.parse_args()
     telemetry = a.telemetry and not a.sim          # navdata read needs the real drone, not the fake one
-    log = Logger("sim" if a.sim else "flight", telemetry=telemetry) if a.log else None
+    tag = "sim" if a.sim else "kbd" if a.keyboard else "flight"
+    log = Logger(tag, telemetry=telemetry) if a.log else None
     if a.sim:
         run_sim(a.host, a.port, log)
+    elif a.keyboard:
+        run_keyboard(a.host, a.port, log, telemetry)
     else:
         run_real(a.host, a.port, log, telemetry)
 

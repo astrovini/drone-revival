@@ -1,0 +1,7 @@
+# Built binaries — rebuild with the cross-toolchain (see scripts/toolchain/build.sh).
+# Keep source in git, not compiled output.
+*
+!*.c
+!*.h
+!*.sh
+!.gitignore

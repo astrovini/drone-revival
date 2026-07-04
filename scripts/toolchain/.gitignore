@@ -1,0 +1,6 @@
+# Built binaries — large and machine-specific; rebuild with build.sh.
+# Keep only source (*.c), the build script, and docs in git.
+*
+!*.c
+!*.sh
+!.gitignore

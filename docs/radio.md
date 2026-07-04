@@ -25,6 +25,10 @@ rate controller for true acro (Path C). Graduated from [ideas.md](ideas.md).
 - ✅ **Telemetry folded into `tango_fly --telemetry`** — reads attitude + motor PWM over the **same** AT
   link (one sequence stream) and logs it beside the sticks. Shares the now-proven `wake_navdata()`;
   offline-verified (mock-drone handshake + drain/parse/sim). ⬜ *props-off takeoff run to log non-zero PWM.*
+- ✅ **Keyboard control (`tango_fly --keyboard`)** — fly without plugging in the Tango. Feeds the *same*
+  Bridge / logging / telemetry via the identical 8-axis vector. WASD = throttle/yaw, arrows = pitch/roll,
+  Enter = arm, T = takeoff, L = land, Space = EMERGENCY, Shift = full deflection, Esc = quit. Opens a small
+  pygame window that must have focus. Offline-verified (axis map + Bridge integration). ⬜ *live run.*
 - ⬜ Confirm stick **directions** on a real hover (flip `REVERSE_*` in `tango_fly.py` if wrong).
 - ⬜ Path C (onboard CRSF RX → our rate controller → acro) — depends on [control.md](control.md).
 
@@ -100,13 +104,42 @@ them side-by-side knocks navdata back into bootstrap. **So telemetry lives insid
 roll/pitch/yaw and `M[0 0 0 0]` (landed). Battery read 43% during that test — charge before a flight run.
 
 **Next hardware run — the real capture (props OFF, one offline session):**
-- **`tango_fly.py --host 192.168.1.1 --telemetry --log`**, arm, brief takeoff (self-cuts ~3 s), nudge a
-  stick. One CSV then holds sticks + sent PCMD + attitude + motor PWM, so PWM will be **non-zero** during
-  the takeoff window. Reconnect to normal WiFi and I'll read `data/radio/flight_*.csv` to diagnose the
-  "compensating" motors (attitude near 0 while level? the four PWMs symmetric?).
+- **`tango_fly.py --host 192.168.1.1 --telemetry --log`** (add **`--keyboard`** to fly it from the laptop
+  instead of the Tango). Arm, brief takeoff (self-cuts ~3 s), nudge a stick/key. One CSV then holds sticks
+  + sent PCMD + attitude + motor PWM, so PWM will be **non-zero** during the takeoff window. Reconnect to
+  normal WiFi and I'll read `data/radio/*_*.csv` (`flight_*` from the Tango, `kbd_*` from the keyboard) to
+  diagnose the "compensating" motors (attitude near 0 while level? the four PWMs symmetric?).
 
 **`navdata.py` flags:** `--probe` (verbose bit-name diagnostic) · `--full` (full navdata incl. motor PWM) ·
 `--log` (CSV → `data/radio/`) · `--selftest` (offline parser check).
+
+## Motor / attitude diagnosis (2026-07-02) — motors + IMU are healthy
+Answers the original *"motors sounded like they were compensating while it sat still"* worry. Three
+props-off captures (all read directly off the Mac):
+
+| capture | file | what it shows |
+|---|---|---|
+| idle baseline | `data/radio/navdata_20260702_181415.csv` (also `data/sensors/idle_navdata_attitude_43s.csv`) | armed & still: motors `0 0 0 0` all 651 frames; roll/pitch within ±0.2° of a <0.3° bias, noise std <0.08°; yaw drift +0.36°/min |
+| takeoff, hands-off | `kbd_20260702_181909.csv` | zero stick input; the clean one |
+| takeoff, with input | `kbd_20260702_154313.csv` | earlier run with key nudges + bigger excursions |
+
+**Findings:**
+1. **Motors/ESCs are healthy.** In the constant-thrust window right after takeoff all four sat at exactly
+   the same PWM (70, then 72; **spread 0**) for ~1.65 s, and tracked **within 2 PWM** through the early ramp.
+2. **The "variation" is integral windup, not a bad motor.** With no props there's no lift/rotation feedback,
+   so the altitude loop ramps thrust to saturation (70→255, all four together) and the attitude integrator
+   winds up on a tiny residual (~−0.25° roll) — the inter-motor spread grows **linearly** 0→~50 PWM over
+   ~55 s (windup signature; a bad motor is a fixed offset or erratic, not a slow ramp). The low corner is
+   *commanded* low, so it isn't a weak motor (a weak motor would be driven high to compensate).
+3. **IMU/fusion is trustworthy at rest** (see idle baseline). No phantom tilt.
+4. **Yaw flips ~180° to −177° at spin-up — magnetometer corruption by motor current.** Single-frame,
+   yaw-only (roll/pitch unmoved), thrust-triggered (~160–185 PWM), reproducible. The mag is the only
+   absolute yaw reference and gets swamped by the motors' magnetic field at high current. Not a defect;
+   see [sensors.md](sensors.md). It's the biggest thing feeding the windup (controller thinks it's 177° off).
+
+**Not yet done:** a *steady-state constant-PWM* motor check. Stock firmware can't do it (armed = motors off;
+the only way to spin is takeoff → closed-loop windup). That needs the direct motor-bus driver →
+[motors.md](motors.md) (gated on the toolchain).
 
 ## Next steps (staged, safest first)
 - [x] Safe rest states verified (A & D rest −1, latch; leave popped out before power-on).
@@ -116,9 +149,10 @@ roll/pitch/yaw and `M[0 0 0 0]` (landed). Battery read 43% during that test — 
 - [x] **Get navdata out of bootstrap** — register multiconfig session + ACK-gated `navdata_demo=TRUE`;
       PWM (tag 9) via additive `navdata_options=513`. **Live-confirmed:** `navdata.py --full` streamed
       attitude + `M[0 0 0 0]` (landed). Folded into `tango_fly --telemetry`. (See *Telemetry debugging*.)
-- [ ] **Real capture (props OFF):** `tango_fly --telemetry --log` during a brief takeoff → **one** CSV
-      with sticks + PCMD + attitude + **non-zero** motor PWM. **← current step.** Then diagnose the
-      "compensating" motors (attitude near 0 when level? motor PWMs symmetric?). Charge the pack first (43%).
+- [x] **Real capture (props OFF) + diagnosis — DONE (2026-07-02).** Three captures analysed (see
+      *Motor / attitude diagnosis* below): **motors + IMU are healthy**; the "compensating" was props-off
+      controller windup, plus a magnetometer-vs-motor-current yaw flip. Next motor check is a steady-state
+      spin, which needs the toolchain → [motors.md](motors.md).
 - [ ] Confirm stick **directions** on a real hover; flip `REVERSE_*` in `tango_fly.py` if needed.
 - [ ] Flip `outdoor`→indoor before the first free hover ([system.md](system.md), [control.md](control.md)).
 - [ ] **Path B (optional):** wireless trainer dongle for untethered control.

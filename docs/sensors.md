@@ -26,7 +26,19 @@ downward sonar, all on the navboard, streamed over `/dev/ttyO1` at ~200 Hz.
   `gyros_offset` every boot (see `pwm_ref_gyros`, `gyro_offset_thr_*`), so the stored value is just the
   last boot's. **Trust the gains; measure the gyro offset fresh from stillness at each startup.**
   *(Supersedes the earlier note that bias "matched `gyros_offset` exactly" — it does not.)*
-- ⬜ Magnetometer / barometer / sonar present but not yet decoded in our reader.
+- ⬜ Magnetometer / barometer / sonar present but not yet decoded in our raw reader.
+- ⚠️ **Magnetometer is corrupted by motor current at high thrust (2026-07-02).** Seen via the fused
+  navdata yaw during props-off takeoffs (`data/radio/kbd_2026070*_18*.csv`): yaw snaps ~180° (to ≈−177°)
+  in a **single frame**, **yaw-only** (roll/pitch unmoved → it's the mag path, the sole absolute heading
+  reference), at a repeatable **thrust threshold** (~160–185 PWM), reproducibly. The motors' magnetic field
+  overwhelms Earth's ~0.3 G field at the sensor. **Implications:** any yaw/heading use must weight the gyro
+  heavily and treat the mag as a low-gain slow correction (or gyro-only yaw-hold for short flights); a mag
+  calibration is needed and even so is imperfect because current varies. Full diagnosis in
+  [radio.md](radio.md) (*Motor / attitude diagnosis*).
+- ✅ **Fused-attitude idle baseline** (`data/sensors/idle_navdata_attitude_43s.csv`, 43 s via navdata @15 Hz,
+  armed & still): roll/pitch hold within ±0.2° of a <0.3° bias (std <0.08°), yaw drifts +0.36°/min (gyro),
+  sonar `alt_mm`=0, motors `0 0 0 0`. Confirms `program.elf`'s own fusion is quiet and unbiased at rest —
+  complements the raw-count baseline above.
 - ⬜ Scale factors known & validated (above), but not yet wired into the live reader. No sensor fusion yet.
 
 ## How it works
@@ -64,7 +76,8 @@ then pull it: `curl -o data/sensors/idle_flat_30s.csv ftp://192.168.1.1/idle.csv
 - [~] **Convert raw counts → physical units** (deg/s, g) — scale factors derived & validated
       (see Status: `1 count ≈ 0.0607 °/s`, `1 count ≈ 1.95 mg`). Remaining: wire the conversion
       into the live reader, and **measure gyro offset fresh at startup** (don't use stored `gyros_offset`).
-      Still TODO: magneto cal (`magneto_offset`, `magneto_radius`).
+      Still TODO: magneto cal (`magneto_offset`, `magneto_radius`) — but note the mag is swamped by motor
+      current at high thrust (see ⚠️ above), so plan for gyro-dominated yaw regardless of cal.
 - [ ] **Sensor fusion** — complementary filter first (cheap), then optionally Kalman →
       clean roll/pitch/yaw estimate. *This output is the input to control.* → [control.md](control.md)
 - [ ] **(After motors unblocked)** log sensors while one motor spins → vibration/disturbance

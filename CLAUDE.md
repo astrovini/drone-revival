@@ -92,19 +92,26 @@ Everything is reversible: a battery unplug/replug restores stock firmware.
 ## You are here (status)
 
 **Confirmed working:** root shell, firmware, all 9-DOF sensors (live-verified), both cameras
-(live), video pipeline, WiFi, full readable tuning config, healthy battery installed.
+(live), video pipeline, WiFi, full readable tuning config, healthy battery installed, **ARM
+cross-toolchain (static armv7 musl, verified on-drone 2026-07-03 — see `docs/toolchain.md`)**.
 
-**Next up:** the **ARM cross-compiler** (`docs/toolchain.md`) is the next unblocked task — it
-gates the single-motor test and all custom control code. Standalone wins needing no toolchain:
-flip `outdoor`→indoor mode (`docs/system.md`) and capture the sensor idle baseline (`docs/sensors.md`).
+**Next up:** characterize the motors now that we can **spin them under our own control** (props-off
+constant-PWM, done 2026-07-03 — see below). Fold the winning config into `scripts/motors/motorspin.c`,
+then map each motor 1–4 (min spin PWM, direction, slot→position) and log sensors during a spin. Standalone
+wins needing no drone code: flip `outdoor`→indoor mode (`docs/system.md`) and capture the sensor idle
+baseline (`docs/sensors.md`).
 Also live (parallel track): **manual radio control** (`docs/radio.md`) — Path A **flies on the real
-drone** (Tango sticks → arm/takeoff/land/emergency, props-off verified). **navdata telemetry is SOLVED &
-live-confirmed:** `wake_navdata()` registers the multiconfig session (required, or CONFIG is ACKed-but-
-dropped) then ACK-gates `navdata_demo=TRUE` to leave bootstrap, and adds motor PWM (tag 9) via additive
-`navdata_options=513`. `navdata.py --full` streamed attitude + `M[...]` live. Folded into
-`tango_fly --telemetry` (one AT stream). **Next:** props-off `tango_fly --telemetry --log` takeoff to
-capture one CSV of sticks + non-zero motor PWM + attitude, then diagnose the "compensating motors." See
-`docs/radio.md`.
+drone** via Tango sticks **or the laptop keyboard** (`tango_fly --keyboard`), props-off verified. **navdata
+telemetry SOLVED & live-confirmed:** `wake_navdata()` registers the multiconfig session (required, or CONFIG
+is ACKed-but-dropped), ACK-gates `navdata_demo=TRUE` to leave bootstrap, adds motor PWM (tag 9) via
+`navdata_options=513`; folded into `tango_fly --telemetry` (one AT stream). **Motor/IMU diagnosis DONE
+(2026-07-02):** motors + IMU healthy — the "compensating motors" was props-off stabiliser **integral
+windup**, plus a **magnetometer-vs-motor-current yaw flip** (~180° at ~160+ PWM; see `docs/sensors.md`).
+**Toolchain DONE (2026-07-03):** static armv7 musl cross-GCC (`messense` brew tap) verified end-to-end on
+the drone. **MOTOR SPIN DONE (2026-07-03):** our own tool spun a motor props-off at constant PWM on
+`/dev/ttyO0` (GPIO via `/dev/mem`; `ardrone/ardrone` is actually 1.0 code, Paparazzi's `boards/ardrone` is
+the 2.0 ref). **Key fix:** select lines (GPIO 171–174) must be **hi-Z during the multicast PWM run**, NOT
+driven low as Paparazzi does — Hugo's 1.0 hi-Z method was right. Full write-up in `docs/motors.md`.
 
 > When a session makes progress, update the **Status** section of the relevant `docs/*.md`
 > and this block, so the next session starts oriented.
