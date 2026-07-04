@@ -17,6 +17,12 @@ constant PWM, flight controller out of the loop) — see the Key finding below.
   did a props-off constant-PWM spin of motor 1 on `/dev/ttyO0` with the flight controller fully out of
   the loop — the definitive motor check, achieved. See the **Key finding** below for the one detail that
   made it work (select-line polarity).
+- ✅ **All-4 constant-idle test PASSED (2026-07-04).** `motorspin all 96 6` — all four spun up together
+  and held the **same steady idle, no asymmetry, no weird noises**. This directly confirms the 2026-07-02
+  diagnosis: the earlier "compensating motors" / weird revving props-off was the **stock closed-loop
+  controller** (takeoff + stabiliser **integral windup** with no attitude feedback), NOT the motors.
+  Motors are healthy and matched — the definitive motor check is done. Open-loop constant PWM = no PID,
+  no windup, so they just sit steady.
 - ✅ Cross-compiler done → [toolchain.md](toolchain.md); GPIO via `/dev/mem` (register access) working.
 - ⬜ **Next:** fold the winning config into `motorspin` and characterize each motor 1–4 (min spin PWM,
   spin direction, map slot→physical position), then log sensors during a spin. See Next steps.
