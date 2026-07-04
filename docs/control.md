@@ -4,7 +4,10 @@ Where sensors + motors come together. Reads the fused attitude from [sensors.md]
 drives the motors from [motors.md](motors.md), and closes the loop. This is the endgame.
 
 ## Status
-- ⬜ Not started — depends on solid sensor fusion AND a working motor driver first.
+- 🟡 **Unblocked and in planning (2026-07-04).** Prereqs now exist: our own motor driver works
+  (`scripts/motors/motorspin.c` — props-off constant PWM, all 4) and the navboard gyro/accel is
+  decoded + scale-validated (`docs/sensors.md`). What's missing is a **real-time C fast loop** and
+  the control law. User goal set: **acro first, then the documented auto-level/hover control.**
 - 📌 Stock firmware already *has* a PID + attitude stabilization; the goal is to
   **replace/retune** it with our own, not add one where none existed.
 
@@ -23,17 +26,57 @@ So: steady indoor hover = tuning + calibration + mechanical health. Outdoor rout
 - **Slow loop on the Mac:** logging, tuning/optimization, parameter updates pushed over WiFi.
 - Both halves already exist in primitive form (sensor streaming + the network link).
 
+## Acro-first plan (acro and full control are the same controller)
+Both endgame goals are **one onboard fast loop**; they differ only in how many loops are closed:
+- **Acro = inner loop only.** Read gyro body rates → **rate PID** against stick setpoints → motor mix.
+  No attitude estimate needed. Self-level OFF.
+- **Auto-level / hover = inner loop + outer loop(s).** An **angle PID** (from fused attitude) feeds rate
+  setpoints into the same inner loop; altitude (sonar/baro) adds a throttle loop. So **building acro
+  builds the core of the documented control** — acro-first is the correct order.
+
+Neither can use stock firmware: we `kill program.elf`, then read `/dev/ttyO1` (navboard) and drive
+`/dev/ttyO0` (motors) ourselves in one process — exactly like `motorspin`.
+
+### Reference code that's actually useful (verified 2026-07-04)
+- **Hugo `ardrone/ardrone` `fly/controlthread.c` + `pid.c` — most reusable; it targets THIS board.**
+  Exact X-quad **motor mixer** (verbatim, modulo our slot→corner check):
+  `m0 = T +roll −pitch +yaw · m1 = T −roll −pitch −yaw · m2 = T −roll +pitch +yaw · m3 = T +roll +pitch −yaw`,
+  plus a tiny PID lib with **D-on-gyro**. It's angle-mode/P-only (Kp roll/pitch 0.5, yaw 1.0, tilt cap
+  12°) — flip to acro by feeding **rate error** instead of angle error; the mixer is identical.
+- **Paparazzi `firmwares/rotorcraft/stabilization/stabilization_rate.c` — the acro algorithm.** Real rate
+  controller: `err = stick_rate_sp − gyro_body_rate`, `cmd = P·err + I·∫err` (windup-clamped, no D). Copy
+  this law for our inner loop. Paparazzi also has the 2.0 gyro + actuator mixing in the same tree.
+- **Betaflight/Cleanflight — gold standard for acro *feel*/tuning** (RC rates/expo, iterm-relax, D-term
+  filtering). Not portable to this hardware and overkill to port, but the reference for flying rate mode
+  nicely.
+- **Synthesis:** Hugo's mixer (this airframe) + Paparazzi's rate-PI law (acro) + our `navread` gyro +
+  our motor driver = the acro controller.
+
+### Safety (non-negotiable — we lose the ~3 s cutout net)
+Once our loop holds the motors continuously, the props-off no-load self-cut no longer saves us. Before
+anything spins with intent: **single-axis test rig** (drone on a rod, one axis only), **hard abort limits**
+(cut motors if rate/tilt exceeds a threshold, or on comms/setpoint loss), and props off until the rig
+stage. Airframe caveat ([radio.md](radio.md)): thrust-to-weight ~1.5 → manual **rate** flight only, no flips.
+
 ## Next steps (staged, safest first)
-- [ ] **Free win, no code:** flip `outdoor`→indoor (AT command, [system.md](system.md)) and
-      re-fly to feel the baseline improvement.
-- [ ] **Sensor fusion solid** (complementary → Kalman) before any controller. → [sensors.md](sensors.md)
-- [ ] **Single-axis test rig** — mount the drone on a rod/gimbal so it can only rotate about
-      one axis. Tune safely (oscillate, overshoot, recover) without it flying away.
-- [ ] **Attitude-hold PID on one axis** → extend to full **auto-level**.
-- [ ] **Altitude hold** using sonar/baro.
-- [ ] **Free hover.**
-- [ ] **Routes** — outdoor waypoints need GNSS; for repeated paths, Iterative Learning Control
-      (ILC) improves tracking every pass.
+- [x] Motor driver — props-off constant PWM, all 4. → [motors.md](motors.md)
+- [x] Navboard gyro/accel decoded + scale-validated (raw batch logger). → [sensors.md](sensors.md)
+- [ ] **`navread.c`** — port `log_idle.sh`'s decode to real-time C, physical units (°/s, g), fresh gyro
+      bias measured at startup. (Sensor half of the fast loop; safe, no motors.)
+- [~] **Motor mixer + geometry map** — slot→corner + CW/CCW. **Open-loop bench tool built (2026-07-04):**
+      `scripts/motors/manualmix.c` (onboard: UDP sticks → Hugo mixer → `/dev/ttyO0`; arm-to-idle, hi-Z
+      select; **NO stabilization — props-off bench only**, comms-timeout + emergency + throttle-low-arm
+      failsafes) + `scripts/control/tango_mix.py` (Mac: Tango/keyboard → UDP :5560). Arms all four to idle,
+      then sticks modulate the four motors — also the way to *read off* which motor is which corner.
+      ⬜ run props-off, confirm stick→motor response, record slot→corner + spin directions.
+- [ ] **Single-axis test rig + hard abort limits** before any intentional spin under closed loop.
+- [ ] **Rate PID = ACRO** on the rig — one axis, then all three; tune P then I (Paparazzi rate law).
+- [ ] **Free win, no code:** flip `outdoor`→indoor ([system.md](system.md)) and re-fly the stock baseline.
+- [ ] **Sensor fusion** (complementary → optional Kalman) for attitude. → [sensors.md](sensors.md)
+- [ ] **Angle PID = auto-level** wrapping the rate loop; then **altitude hold** (sonar/baro) = **hover**.
+- [ ] **Routes** — outdoor waypoints need GNSS; ILC improves repeated paths each pass.
+- [ ] **Command source:** onboard CRSF RX → our loop ([radio.md](radio.md) Path C), or keep tethered
+      keyboard/Tango setpoints streamed to the loop.
 
 ## Can it auto-tune / "learn"? (spectrum, matched to the problem)
 - **Drifts right → corrects:** mostly the **integral term** of a PID (eliminates steady-state

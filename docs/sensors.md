@@ -78,6 +78,9 @@ then pull it: `curl -o data/sensors/idle_flat_30s.csv ftp://192.168.1.1/idle.csv
       into the live reader, and **measure gyro offset fresh at startup** (don't use stored `gyros_offset`).
       Still TODO: magneto cal (`magneto_offset`, `magneto_radius`) — but note the mag is swamped by motor
       current at high thrust (see ⚠️ above), so plan for gyro-dominated yaw regardless of cal.
+- [ ] **`navread.c`** — real-time C port of the `log_idle.sh` decode: live °/s + g, gyro bias measured
+      fresh at startup. This is the **sensor half of the control fast loop** and the acro inner-loop input.
+      → [control.md](control.md) (acro-first plan)
 - [ ] **Sensor fusion** — complementary filter first (cheap), then optionally Kalman →
       clean roll/pitch/yaw estimate. *This output is the input to control.* → [control.md](control.md)
 - [ ] **(After motors unblocked)** log sensors while one motor spins → vibration/disturbance

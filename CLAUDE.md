@@ -95,11 +95,12 @@ Everything is reversible: a battery unplug/replug restores stock firmware.
 (live), video pipeline, WiFi, full readable tuning config, healthy battery installed, **ARM
 cross-toolchain (static armv7 musl, verified on-drone 2026-07-03 — see `docs/toolchain.md`)**.
 
-**Next up:** characterize the motors now that we can **spin them under our own control** (props-off
-constant-PWM, done 2026-07-03 — see below). Fold the winning config into `scripts/motors/motorspin.c`,
-then map each motor 1–4 (min spin PWM, direction, slot→position) and log sensors during a spin. Standalone
-wins needing no drone code: flip `outdoor`→indoor mode (`docs/system.md`) and capture the sensor idle
-baseline (`docs/sensors.md`).
+**Next up:** the endgame — **acro, then the documented auto-level/hover control** — now unblocked (motors
++ gyro both in hand). They're one onboard fast loop: acro = inner rate PID, auto-level/hover = + outer
+loops. Concrete next artifact: **`navread.c`** (real-time C gyro/accel reader), then motor mixer → rate
+PID (acro). Full plan + reference code (Hugo mixer, Paparazzi rate law) in **`docs/control.md`** (acro-first
+plan). Smaller parallel wins: motor slot→corner/RPM characterization (`docs/motors.md`), flip
+`outdoor`→indoor (`docs/system.md`).
 Also live (parallel track): **manual radio control** (`docs/radio.md`) — Path A **flies on the real
 drone** via Tango sticks **or the laptop keyboard** (`tango_fly --keyboard`), props-off verified. **navdata
 telemetry SOLVED & live-confirmed:** `wake_navdata()` registers the multiconfig session (required, or CONFIG
@@ -111,7 +112,10 @@ windup**, plus a **magnetometer-vs-motor-current yaw flip** (~180° at ~160+ PWM
 the drone. **MOTOR SPIN DONE (2026-07-03):** our own tool spun a motor props-off at constant PWM on
 `/dev/ttyO0` (GPIO via `/dev/mem`; `ardrone/ardrone` is actually 1.0 code, Paparazzi's `boards/ardrone` is
 the 2.0 ref). **Key fix:** select lines (GPIO 171–174) must be **hi-Z during the multicast PWM run**, NOT
-driven low as Paparazzi does — Hugo's 1.0 hi-Z method was right. Full write-up in `docs/motors.md`.
+driven low as Paparazzi does — Hugo's 1.0 hi-Z method was right. **All-4 constant-idle test PASSED
+(2026-07-04):** `motorspin all` — all four steady at the same idle, no weird noises, confirming the earlier
+"compensating motors" was stock closed-loop **integral windup** props-off, not the motors. Full write-up in
+`docs/motors.md`. **Next:** put real RPM numbers on the motors (IMU-vibration FFT or tach) → sensors track.
 
 > When a session makes progress, update the **Status** section of the relevant `docs/*.md`
 > and this block, so the next session starts oriented.
@@ -119,6 +123,8 @@ driven low as Paparazzi does — Hugo's 1.0 hi-Z method was right. Full write-up
 ## Conventions
 
 - Mac is the dev box; the drone is the target. Cross-compile on Mac, FTP binaries to `/data/video/`.
+- Mac Python scripts need **pygame** — run with **`.venv/bin/python3`** (a system-Python 3.9 venv;
+  the Homebrew `python3` is 3.14 with no pygame + PEP 668). `source .venv/bin/activate` to drop the prefix.
 - Connect (**the user does this, not Claude — see the ⛔ callout at top**): the user joins the
   drone's WiFi → `telnet 192.168.1.1` (or `nc 192.168.1.1 23`). Claude only prepares the commands.
 - Name captured logs `data/<area>/<what>_<conditions>.csv` (e.g. `data/sensors/idle_flat_30s.csv`).
