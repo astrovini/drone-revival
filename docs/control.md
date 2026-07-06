@@ -68,11 +68,10 @@ stage. Airframe caveat ([radio.md](radio.md)): thrust-to-weight ~1.5 → manual 
 - [x] **Body-axis sign map from `navread`** (2026-07-06 front/back/right/left×2 test) — the mixer's rate-sign
       reference: **pitch = `gy`/`ax`** (nose-down = −ax/−gy), **roll = `gx`/`ay`** (right = −ay/+gx),
       **yaw = `gz`**. Full table in [sensors.md](sensors.md). Still need slot→corner (below) to close the loop.
-- [ ] **`navread` frame-validation / lock-on gate** — reject false-synced frames (seq must advance by 1;
-      sane physical range) before `navread` becomes the control input. A non-unique `0x3A 0x00` marker
-      false-synced 1 frame of 5379 at startup (harmless now, a motor-spike risk once it drives a PID).
-      → [sensors.md](sensors.md). *(next up — do before the bench tool)*
-- [ ] **Print-only rate-loop bench tool** — the full acro chain (navread gyro → rate PID → Hugo mixer) but
+- [x] **`navread` frame-validation / lock-on gate** — DONE + on-drone verified 2026-07-06. Startup lock-on
+      + seq-continuity + 12-bit sanity + self-heal; a gated `--csv` capture had 0 impossible frames / 0 seq
+      discontinuities (was 1/5379). `navread` is now safe to feed a PID. → [sensors.md](sensors.md).
+- [~] **Print-only rate-loop bench tool** — the full acro chain (navread gyro → rate PID → Hugo mixer) but
       with motor drive **disabled / printed**, props off. Tilt/rotate by hand and confirm the 4 motor
       commands respond correctly (e.g. nose-down → back motors up, front down) — catches sign errors with
       **zero risk** before any closed-loop spin. Uses the axis map above + `motorspin`'s motor path.

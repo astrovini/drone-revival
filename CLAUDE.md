@@ -103,11 +103,13 @@ tilt agreeing, 0 dropped frames under motion — the **fast-loop sensor input is
 A front/back/right/left×2 tilt test also fixed the **body-axis sign map** (pitch=`gy`/`ax`, roll=`gx`/`ay`,
 yaw=`gz`) for the mixer, and surfaced a **framing gotcha**: `navread`'s `0x3A 0x00` sync marker is non-unique
 (recurs in data), false-syncing 1 frame of 5379 at startup — harmless now but a motor-spike risk once it
-drives a PID. **Immediate next:** (1) add a `navread` **frame-validation/lock-on gate** (seq-continuity +
-sanity range), then (2) a **print-only rate-loop bench tool** — navread gyro → rate PID → Hugo X-quad mixer
-with motor drive **printed not driven**, props off, to confirm signs by hand-rotating before any closed-loop
-spin. Then wire in `motorspin`'s motor path (needs slot→corner too). Full plan + reference code (Hugo mixer,
-Paparazzi rate law) in **`docs/control.md`** (acro-first plan). Smaller parallel wins: motor slot→corner/RPM characterization (`docs/motors.md`), flip
+drives a PID. **`navread` frame-validation/lock-on gate DONE + on-drone verified (2026-07-06):** startup
+lock-on + seq-continuity + 12-bit sanity + self-heal; a gated `--csv` capture had **0 impossible frames / 0
+seq discontinuities** (was 1/5379) — navread is now safe to feed a PID. **Immediate next:** the **print-only
+rate-loop bench tool** — navread gyro → rate PID → Hugo X-quad mixer with motor drive **printed not driven**,
+props off, to confirm signs by hand-rotating before any closed-loop spin. Then wire in `motorspin`'s motor
+path (needs slot→corner too). Full plan + reference code (Hugo mixer, Paparazzi rate law) in
+**`docs/control.md`** (acro-first plan). Smaller parallel wins: motor slot→corner/RPM characterization (`docs/motors.md`), flip
 `outdoor`→indoor (`docs/system.md`).
 Also live (parallel track): **manual radio control** (`docs/radio.md`) — Path A **flies on the real
 drone** via Tango sticks **or the laptop keyboard** (`tango_fly --keyboard`), props-off verified. **navdata

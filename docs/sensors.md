@@ -55,7 +55,7 @@ downward sonar, all on the navboard, streamed over `/dev/ttyO1` at ~200 Hz.
   - **Roll**  = gyro **`gx`** / accel **`ay`**: **right** = **−ay & +gx**; **left** = **+ay & −gx**.
   - **Yaw**   = gyro **`gz`**: stayed ≤45 °/s (spillover only) during pure pitch/roll → clean axis isolation.
   Each tilt reached ~25–45° and the accel-derived angle matched the gyro-rate integral (two-sensor agreement).
-- ⚠️ **`navread` header sync is on a non-unique marker — needs a validation gate before it drives control.**
+- ✅ **`navread` header-sync ambiguity — diagnosed and FIXED by the validation gate (see Next steps).**
   The frame start `0x3A 0x00` is just the value **58**, which also occurs *inside* frames (gz idles ~54–56 and
   hits 58 in ~4.5% of frames; tail/checksum bytes too). In `navread_motion.csv` exactly **1 frame of 5379**
   (row 58, t=0.3 s, at startup) locked 2 bytes early → every field shifted by one `uint16` (real seq 7406
@@ -104,10 +104,14 @@ then pull it: `curl -o data/sensors/idle_flat_30s.csv ftp://192.168.1.1/idle.csv
 - [x] **`navread.c`** — real-time C port of the `log_idle.sh` decode: live °/s + g, gyro bias measured
       fresh at startup. Built + on-drone validated static & dynamic (2026-07-06; see Status). This is the
       **sensor half of the control fast loop** and the acro inner-loop input. → [control.md](control.md)
-- [ ] **`navread` frame-validation / lock-on gate** — before it drives the control loop, reject frames
-      whose seq doesn't advance by 1 (mod 65536) and whose values exceed a sane physical range
-      (`|accel|<4 g`, `|gyro|<2500 °/s`), and require a few consecutive good frames at startup before
-      trusting the stream. Fixes the non-unique-`0x3A 0x00` false-sync (see ⚠️ in Status). *(next up)*
+- [x] **`navread` frame-validation / lock-on gate (2026-07-06, done + on-drone verified).** Startup
+      **lock-on** (5 consecutive seq+1 sane frames before trusting the stream) + per-frame **seq-continuity**
+      (accept only a 1–8 forward step; keep last-good seq so the next real frame recovers) + **sanity**
+      (accel raw must fit the 12-bit ADC, <4096) + **self-heal** (12 rejects → re-anchor). Unit-tested
+      natively (rejects a synthetic row-58 false-sync, recovers, re-locks); on-drone a fresh
+      `--csv --raw` capture (`data/sensors/navread_gated.csv`) had **0 impossible frames** (was 1/5379)
+      and **0 seq discontinuities** — the startup false-sync is absorbed by lock-on and never emitted.
+      `[done]` now reports `gate: rejected/relocks/dropped`.
 - [ ] **Sensor fusion** — complementary filter first (cheap), then optionally Kalman →
       clean roll/pitch/yaw estimate. *This output is the input to control.* → [control.md](control.md)
 - [ ] **(After motors unblocked)** log sensors while one motor spins → vibration/disturbance

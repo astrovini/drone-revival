@@ -185,12 +185,108 @@ static void accel_g(const int raw[3], double g[3])
     }
 }
 
+/* ==================== frame validation / lock-on gate ====================
+ * The `0x3A 0x00` frame header is just the value 58, which also occurs INSIDE
+ * frames (gz idles ~54–56 and hits 58 in ~4.5% of frames; tail/checksum bytes
+ * too). So a mid-stream start can false-sync onto a data byte-pair and read one
+ * frame at the wrong offset (observed: 1 in 5379 at startup — every field
+ * shifted one uint16, e.g. a bogus 10.58 g accel). Header alone is NOT enough.
+ * We validate that a frame is *real*:
+ *   1) startup LOCK-ON — require LOCK_FRAMES consecutive seq+1 frames before we
+ *      trust the stream, so the first used frame is already aligned;
+ *   2) per-frame SEQ-CONTINUITY — accept only a small forward seq step
+ *      (1..MAX_SEQ_GAP allows a few genuinely dropped frames); a false-sync's
+ *      garbage seq is way out of range -> rejected, and we keep the last GOOD
+ *      seq so the next real frame recovers (gap 2);
+ *   3) physical SANITY — accel raw must fit the 12-bit ADC (<4096); real counts
+ *      sit ~1700–2700 even under hard motion, the shift produced 7406. (Gyro raw
+ *      can legitimately approach the int16 limit, so seq-continuity is its guard.)
+ * If we somehow reject RELOCK_AFTER in a row we've truly lost lock -> re-anchor
+ * to the current seq and re-validate from there. */
+#define LOCK_FRAMES  5       /* consecutive good frames to declare startup lock */
+#define MAX_SEQ_GAP  8       /* accept seq steps of 1..this (tolerate a few drops) */
+#define RELOCK_AFTER 12      /* consecutive rejects => re-anchor to the live stream */
+#define ACC_RAW_MAX  4096    /* 12-bit accel ADC ceiling; a real count never reaches it */
+
+typedef struct {
+    int      locked;         /* startup lock-on complete */
+    unsigned last_seq;       /* seq of the last ACCEPTED frame */
+    int      have_last;
+    long     rejects;        /* frames dropped by the gate (bad seq / insane) */
+    long     relocks;        /* times we lost lock and re-anchored */
+    long     dropped;        /* genuine dropped frames (accepted small seq gaps) */
+} gate_t;
+
+/* physically-possible frame? (accel raw within 12-bit ADC range) */
+static int frame_sane(const frame_t *f)
+{
+    for (int i = 0; i < 3; i++)
+        if (f->raw_a[i] < 0 || f->raw_a[i] >= ACC_RAW_MAX) return 0;
+    return 1;
+}
+
+/* Discard frames until LOCK_FRAMES consecutive seq+1 (sane) -> aligned to the
+ * true 58-byte cadence. Seeds gate->last_seq. Returns 0 ok, -1 stop/EOF/stall. */
+static int lock_on(int fd, gate_t *g, long *resyncs)
+{
+    uint8_t  raw[FRAME_LEN];
+    frame_t  f;
+    unsigned prev = 0;
+    int      have = 0, consec = 0, tries = 0;
+
+    while (!stop_requested) {
+        if (next_frame(fd, raw, resyncs) <= 0) return -1;
+        if (++tries > 3000) return -1;            /* ~15 s @200Hz: stream never locked */
+        decode(raw, &f);
+        if (!frame_sane(&f)) { consec = 0; have = 0; continue; }
+        if (!have) { prev = f.seq; have = 1; consec = 1; continue; }
+        unsigned gap = (f.seq - prev) & 0xFFFF;
+        prev = f.seq;
+        if      (gap == 1) consec++;
+        else if (gap == 0) { /* duplicate: neither advance nor reset */ }
+        else               consec = 1;            /* discontinuity: this frame re-anchors */
+        if (consec >= LOCK_FRAMES) {
+            g->locked = 1; g->last_seq = f.seq; g->have_last = 1;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/* Next VALIDATED frame into *f (seq-continuity + sanity, past false-syncs).
+ * Returns 1 ok, 0 stop/EOF. Assumes lock_on() already ran. */
+static int next_valid_frame(int fd, frame_t *f, gate_t *g, long *resyncs)
+{
+    uint8_t raw[FRAME_LEN];
+    int     consec_rej = 0;
+    for (;;) {
+        if (next_frame(fd, raw, resyncs) <= 0) return 0;
+        decode(raw, f);
+        if (!frame_sane(f)) { g->rejects++; consec_rej++; goto maybe_relock; }
+        {
+            unsigned gap = (f->seq - g->last_seq) & 0xFFFF;
+            if (gap == 0) continue;                       /* duplicate: skip, keep ref */
+            if (gap <= MAX_SEQ_GAP) {                     /* in sequence -> ACCEPT */
+                if (gap > 1) g->dropped += (gap - 1);     /* a few genuinely dropped frames */
+                g->last_seq = f->seq;
+                return 1;
+            }
+            g->rejects++; consec_rej++;                   /* bogus seq (false-sync) */
+        }
+    maybe_relock:
+        if (consec_rej >= RELOCK_AFTER) {                 /* truly lost lock: re-anchor */
+            g->last_seq = f->seq; g->relocks++; consec_rej = 0;
+        }
+        /* else: keep the last GOOD seq so the next real frame recovers (gap ~2) */
+    }
+}
+
 /* ============================ bias calibration ============================
  * Average the gyro over `secs` of stillness -> fresh per-axis bias (counts).
  * Guards against motion: if any axis std exceeds MOTION_DPS, warn and retry. */
 #define MOTION_DPS 1.5
 
-static int measure_bias(int fd, double secs, double bias_out[3], long *resyncs)
+static int measure_bias(int fd, double secs, double bias_out[3], gate_t *g, long *resyncs)
 {
     for (int attempt = 1; attempt <= 3 && !stop_requested; attempt++) {
         fprintf(stderr, "[bias] hold STILL — averaging gyro for %.1f s (attempt %d)...\n", secs, attempt);
@@ -199,13 +295,10 @@ static int measure_bias(int fd, double secs, double bias_out[3], long *resyncs)
         double sum[3] = {0, 0, 0}, sumsq[3] = {0, 0, 0};
         long   n = 0;
         double t0 = now_s();
-        uint8_t frame[FRAME_LEN];
         frame_t f;
 
         while (!stop_requested && (now_s() - t0) < secs) {
-            int r = next_frame(fd, frame, resyncs);
-            if (r <= 0) return -1;
-            decode(frame, &f);
+            if (next_valid_frame(fd, &f, g, resyncs) <= 0) return -1;
             for (int a = 0; a < 3; a++) {
                 sum[a]   += f.raw_g[a];
                 sumsq[a] += (double)f.raw_g[a] * f.raw_g[a];
@@ -293,14 +386,29 @@ int main(int argc, char **argv)
     if (fd < 0) return 1;
     start_acquisition(fd);
 
-    long resyncs = 0;
-    double bias[3];
-    if (measure_bias(fd, calib_secs, bias, &resyncs) < 0) {
-        if (!stop_requested) fprintf(stderr, "bias measurement failed — is program.elf killed and the stream live?\n");
+    long   resyncs = 0;
+    gate_t gate    = {0};
+
+    /* lock onto the true 58-byte cadence before trusting any frame (see gate notes) */
+    fprintf(stderr, "[sync] locking onto the navboard frame cadence...\n"); fflush(stderr);
+    if (lock_on(fd, &gate, &resyncs) < 0) {
+        if (!stop_requested) fprintf(stderr, "[sync] FAILED to lock — is program.elf killed and the stream live?\n");
         close(fd);
         return stop_requested ? 0 : 1;
     }
-    if (bias_only) { close(fd); return 0; }
+    fprintf(stderr, "[sync] locked (seq=%u).\n", gate.last_seq);
+
+    double bias[3];
+    if (measure_bias(fd, calib_secs, bias, &gate, &resyncs) < 0) {
+        if (!stop_requested) fprintf(stderr, "bias measurement failed — stream stalled?\n");
+        close(fd);
+        return stop_requested ? 0 : 1;
+    }
+    if (bias_only) {
+        fprintf(stderr, "[gate] rejected %ld bad frame(s), %ld relock(s) during bias.\n", gate.rejects, gate.relocks);
+        close(fd);
+        return 0;
+    }
 
     int decim = (print_hz > 0.0) ? (int)(NAV_HZ / print_hz + 0.5) : 1;
     if (decim < 1) decim = 1;
@@ -317,24 +425,12 @@ int main(int argc, char **argv)
         fflush(stderr);
     }
 
-    uint8_t  frame[FRAME_LEN];
     frame_t  f;
-    long     seen = 0, printed = 0, dropped = 0;
-    unsigned last_seq = 0;
-    int      have_last = 0;
+    long     seen = 0, printed = 0;
     double   t_start = now_s();
 
     while (!stop_requested) {
-        int r = next_frame(fd, frame, &resyncs);
-        if (r <= 0) break;
-        decode(frame, &f);
-
-        if (have_last) {
-            unsigned gap = (f.seq - last_seq) & 0xFFFF;   /* seq is uint16, wraps */
-            if (gap == 0) continue;                       /* duplicate — skip */
-            if (gap > 1) dropped += (gap - 1);
-        }
-        last_seq = f.seq; have_last = 1;
+        if (next_valid_frame(fd, &f, &gate, &resyncs) <= 0) break;   /* gated: seq + sanity */
         seen++;
 
         if (seen % decim != 0) continue;
@@ -371,8 +467,9 @@ int main(int argc, char **argv)
         if (max_frames > 0 && printed >= max_frames) break;
     }
 
-    fprintf(stderr, "[done] frames=%ld printed=%ld dropped=%ld resync_bytes=%ld  %.1f s\n",
-           seen, printed, dropped, resyncs, now_s() - t_start);
+    fprintf(stderr, "[done] frames=%ld printed=%ld dropped=%ld  gate: rejected=%ld relocks=%ld  "
+           "resync_bytes=%ld  %.1f s\n",
+           seen, printed, gate.dropped, gate.rejects, gate.relocks, resyncs, now_s() - t_start);
     close(fd);
     return 0;
 }
