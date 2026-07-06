@@ -105,11 +105,15 @@ yaw=`gz`) for the mixer, and surfaced a **framing gotcha**: `navread`'s `0x3A 0x
 (recurs in data), false-syncing 1 frame of 5379 at startup — harmless now but a motor-spike risk once it
 drives a PID. **`navread` frame-validation/lock-on gate DONE + on-drone verified (2026-07-06):** startup
 lock-on + seq-continuity + 12-bit sanity + self-heal; a gated `--csv` capture had **0 impossible frames / 0
-seq discontinuities** (was 1/5379) — navread is now safe to feed a PID. **Immediate next:** the **print-only
-rate-loop bench tool** — navread gyro → rate PID → Hugo X-quad mixer with motor drive **printed not driven**,
-props off, to confirm signs by hand-rotating before any closed-loop spin. Then wire in `motorspin`'s motor
-path (needs slot→corner too). Full plan + reference code (Hugo mixer, Paparazzi rate law) in
-**`docs/control.md`** (acro-first plan). Smaller parallel wins: motor slot→corner/RPM characterization (`docs/motors.md`), flip
+seq discontinuities** (was 1/5379) — navread is now safe to feed a PID. **Print-only rate-loop bench tool
+DONE + on-drone verified all 3 axes (2026-07-06):** `scripts/control/ratebench.c` (navboard gyro → rate PID →
+Hugo X-quad mixer, motor drive **printed not driven**, props-off safe) — hand-rotation split the correct motor
+pairs (pitch {m0,m1}|{m2,m3}, roll {m0,m3}|{m1,m2}, yaw {m0,m2}|{m1,m3}) across 23 segmented episodes
+(`data/control/ratebench_axes.csv`). Shared reader extracted to **`scripts/sensors/navboard.h`** (navread +
+control tools use one copy). **Immediate next:** the **slot→corner + spin-direction map** — which physical
+motor is m0–m3 (via `manualmix`, props-off) — to turn "splits the right pair" into "physically opposes the
+rotation"; then single-axis rig + hard-abort limits → real closed-loop rate PID (acro). Full plan + reference
+code (Hugo mixer, Paparazzi rate law) in **`docs/control.md`** (acro-first plan). Smaller parallel wins: motor slot→corner/RPM characterization (`docs/motors.md`), flip
 `outdoor`→indoor (`docs/system.md`).
 Also live (parallel track): **manual radio control** (`docs/radio.md`) — Path A **flies on the real
 drone** via Tango sticks **or the laptop keyboard** (`tango_fly --keyboard`), props-off verified. **navdata

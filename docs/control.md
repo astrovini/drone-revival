@@ -71,7 +71,7 @@ stage. Airframe caveat ([radio.md](radio.md)): thrust-to-weight ~1.5 → manual 
 - [x] **`navread` frame-validation / lock-on gate** — DONE + on-drone verified 2026-07-06. Startup lock-on
       + seq-continuity + 12-bit sanity + self-heal; a gated `--csv` capture had 0 impossible frames / 0 seq
       discontinuities (was 1/5379). `navread` is now safe to feed a PID. → [sensors.md](sensors.md).
-- [~] **Print-only rate-loop bench tool — BUILT (2026-07-06), pending on-drone run.**
+- [x] **Print-only rate-loop bench tool — BUILT + on-drone verified all 3 axes (2026-07-06).**
       `scripts/control/ratebench.c`: the full inner acro chain (navboard gyro → rate PID → Hugo X-quad
       mixer) with motor drive **disabled — prints the 4 motor commands only**. Reads `/dev/ttyO1` ONLY;
       never opens `/dev/ttyO0`/GPIO/​/dev/mem — as safe as navread, props off. Setpoint=0 ⇒ rate damper:
@@ -81,10 +81,12 @@ stage. Airframe caveat ([radio.md](radio.md)): thrust-to-weight ~1.5 → manual 
       Also introduced **`scripts/sensors/navboard.h`** — header-only shared IMU reader (frame protocol +
       factory cal + fresh bias + validation gate) so navread and the control tools share ONE copy; gate
       unit test still passes against it. Has a live in-place gauge + `--csv` capture mode.
-      **On-drone verified 2026-07-06 (pitch + roll):** hand-rotation split the correct motor pairs —
-      pitch ⇒ {m0,m1} vs {m2,m3}, roll ⇒ {m0,m3} vs {m1,m2}, scaling with rate, returning to throttle at
-      rest; gate stayed clean (0 dropped/rejected/relocks over 3426 frames). ⬜ yaw grouping ({m0,m2} vs
-      {m1,m3}) still to exercise; physical which-corner/spin-direction check needs slot→corner (below).
+      **On-drone verified 2026-07-06 — ALL 3 axes** (`data/control/ratebench_axes.csv`, 23 single-axis
+      episodes segmented): pitch ⇒ {m0,m1} vs {m2,m3}, roll ⇒ {m0,m3} vs {m1,m2}, yaw ⇒ {m0,m2} vs {m1,m3}
+      (diagonal pairs — correct for quad yaw), each consistent across both rounds, scaling with rate,
+      returning to throttle at rest. Chain + mixer wiring confirmed. **Remaining before this means anything
+      *physical*:** slot→corner + spin-direction (below) — the bench proves m0/m1 move *together*, not which
+      corner m0 *is* nor whether the split *opposes* the rotation.
 - [~] **Motor mixer + geometry map** — slot→corner + CW/CCW. **Open-loop bench tool built (2026-07-04):**
       `scripts/motors/manualmix.c` (onboard: UDP sticks → Hugo mixer → `/dev/ttyO0`; arm-to-idle, hi-Z
       select; **NO stabilization — props-off bench only**, comms-timeout + emergency + throttle-low-arm
