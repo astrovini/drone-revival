@@ -61,8 +61,21 @@ stage. Airframe caveat ([radio.md](radio.md)): thrust-to-weight ~1.5 → manual 
 ## Next steps (staged, safest first)
 - [x] Motor driver — props-off constant PWM, all 4. → [motors.md](motors.md)
 - [x] Navboard gyro/accel decoded + scale-validated (raw batch logger). → [sensors.md](sensors.md)
-- [ ] **`navread.c`** — port `log_idle.sh`'s decode to real-time C, physical units (°/s, g), fresh gyro
-      bias measured at startup. (Sensor half of the fast loop; safe, no motors.)
+- [x] **`navread.c`** — port `log_idle.sh`'s decode to real-time C, physical units (°/s, g), fresh gyro
+      bias measured at startup. (Sensor half of the fast loop; safe, no motors.) **DONE + on-drone
+      validated 2026-07-06** — still→0, hand-rotation lights the right axis, accel tilt agrees with the
+      rate integral, 0 dropped frames under motion. → [sensors.md](sensors.md). **Fast-loop input ready.**
+- [x] **Body-axis sign map from `navread`** (2026-07-06 front/back/right/left×2 test) — the mixer's rate-sign
+      reference: **pitch = `gy`/`ax`** (nose-down = −ax/−gy), **roll = `gx`/`ay`** (right = −ay/+gx),
+      **yaw = `gz`**. Full table in [sensors.md](sensors.md). Still need slot→corner (below) to close the loop.
+- [ ] **`navread` frame-validation / lock-on gate** — reject false-synced frames (seq must advance by 1;
+      sane physical range) before `navread` becomes the control input. A non-unique `0x3A 0x00` marker
+      false-synced 1 frame of 5379 at startup (harmless now, a motor-spike risk once it drives a PID).
+      → [sensors.md](sensors.md). *(next up — do before the bench tool)*
+- [ ] **Print-only rate-loop bench tool** — the full acro chain (navread gyro → rate PID → Hugo mixer) but
+      with motor drive **disabled / printed**, props off. Tilt/rotate by hand and confirm the 4 motor
+      commands respond correctly (e.g. nose-down → back motors up, front down) — catches sign errors with
+      **zero risk** before any closed-loop spin. Uses the axis map above + `motorspin`'s motor path.
 - [~] **Motor mixer + geometry map** — slot→corner + CW/CCW. **Open-loop bench tool built (2026-07-04):**
       `scripts/motors/manualmix.c` (onboard: UDP sticks → Hugo mixer → `/dev/ttyO0`; arm-to-idle, hi-Z
       select; **NO stabilization — props-off bench only**, comms-timeout + emergency + throttle-low-arm

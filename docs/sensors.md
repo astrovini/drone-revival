@@ -39,7 +39,30 @@ downward sonar, all on the navboard, streamed over `/dev/ttyO1` at ~200 Hz.
   armed & still): roll/pitch hold within ±0.2° of a <0.3° bias (std <0.08°), yaw drifts +0.36°/min (gyro),
   sonar `alt_mm`=0, motors `0 0 0 0`. Confirms `program.elf`'s own fusion is quiet and unbiased at rest —
   complements the raw-count baseline above.
-- ⬜ Scale factors known & validated (above), but not yet wired into the live reader. No sensor fusion yet.
+- ✅ **`navread.c` — live reader in physical units, validated on-drone (2026-07-06).** Real-time C
+  (static armv7, [`scripts/sensors/navread.c`](../scripts/sensors/navread.c)): sends `0x01`, resyncs on
+  the `0x3A 0x00` header, applies the factory `gyros_gains`/`accs_gains`+`accs_offset` from `config.ini`,
+  and **measures gyro bias fresh at startup** (never the volatile stored offset). Live-verified: still →
+  gyro ≈ 0 °/s & az ≈ −1 g (|a|≈1); hand-rotation lights the correct gyro axis with the accel tilt
+  **agreeing** (the rate integral matches the accel angle, a two-sensor cross-check); `dropped=0` over
+  5277 frames under vigorous motion. Fresh bias came out `~8/36/55` counts (≈ the raw idle baseline,
+  and correctly ≠ stored `gyros_offset`). Scale-factor wiring + fresh-bias: **done.** Sensor fusion is
+  the remaining piece. → [control.md](control.md)
+- ✅ **Body-axis map nailed down (2026-07-06, `data/sensors/navread_motion.csv`).** A front→back→right→left
+  ×2 hand-tilt test (segmented per motion) gives a self-consistent axis map across both rounds — the sign
+  reference the mixer needs:
+  - **Pitch** = gyro **`gy`** / accel **`ax`**: nose-down (front) = **−ax & −gy**; nose-up (back) = **+ax & +gy**.
+  - **Roll**  = gyro **`gx`** / accel **`ay`**: **right** = **−ay & +gx**; **left** = **+ay & −gx**.
+  - **Yaw**   = gyro **`gz`**: stayed ≤45 °/s (spillover only) during pure pitch/roll → clean axis isolation.
+  Each tilt reached ~25–45° and the accel-derived angle matched the gyro-rate integral (two-sensor agreement).
+- ⚠️ **`navread` header sync is on a non-unique marker — needs a validation gate before it drives control.**
+  The frame start `0x3A 0x00` is just the value **58**, which also occurs *inside* frames (gz idles ~54–56 and
+  hits 58 in ~4.5% of frames; tail/checksum bytes too). In `navread_motion.csv` exactly **1 frame of 5379**
+  (row 58, t=0.3 s, at startup) locked 2 bytes early → every field shifted by one `uint16` (real seq 7406
+  showed up in the `ax` slot → a bogus `10.58 g`). It self-corrected on the next frame and never recurred
+  (once locked to the 58-byte cadence it stays locked). **Not a bad sensor** — the values were all correct,
+  just read at the wrong offset. Fix = validate a frame is *real* (seq continues by 1; sane physical range;
+  startup lock-on of a few consecutive good frames), not merely that it starts with `58,0`. See Next steps.
 
 ## How it works
 Free the navboard (kill respawner + `program.elf`), set the port raw, send `\001` to start
@@ -78,9 +101,13 @@ then pull it: `curl -o data/sensors/idle_flat_30s.csv ftp://192.168.1.1/idle.csv
       into the live reader, and **measure gyro offset fresh at startup** (don't use stored `gyros_offset`).
       Still TODO: magneto cal (`magneto_offset`, `magneto_radius`) — but note the mag is swamped by motor
       current at high thrust (see ⚠️ above), so plan for gyro-dominated yaw regardless of cal.
-- [ ] **`navread.c`** — real-time C port of the `log_idle.sh` decode: live °/s + g, gyro bias measured
-      fresh at startup. This is the **sensor half of the control fast loop** and the acro inner-loop input.
-      → [control.md](control.md) (acro-first plan)
+- [x] **`navread.c`** — real-time C port of the `log_idle.sh` decode: live °/s + g, gyro bias measured
+      fresh at startup. Built + on-drone validated static & dynamic (2026-07-06; see Status). This is the
+      **sensor half of the control fast loop** and the acro inner-loop input. → [control.md](control.md)
+- [ ] **`navread` frame-validation / lock-on gate** — before it drives the control loop, reject frames
+      whose seq doesn't advance by 1 (mod 65536) and whose values exceed a sane physical range
+      (`|accel|<4 g`, `|gyro|<2500 °/s`), and require a few consecutive good frames at startup before
+      trusting the stream. Fixes the non-unique-`0x3A 0x00` false-sync (see ⚠️ in Status). *(next up)*
 - [ ] **Sensor fusion** — complementary filter first (cheap), then optionally Kalman →
       clean roll/pitch/yaw estimate. *This output is the input to control.* → [control.md](control.md)
 - [ ] **(After motors unblocked)** log sensors while one motor spins → vibration/disturbance
@@ -90,3 +117,6 @@ then pull it: `curl -o data/sensors/idle_flat_30s.csv ftp://192.168.1.1/idle.csv
 - Raw values are uncalibrated ADC counts — fine for "is it alive," but convert before any control.
 - Must flush buffered frames after sending `\001` or you read seconds-old data.
 - A bad attitude estimate makes everything downstream "learn a lie" — get fusion solid first.
+- **Header-only framing is ambiguous:** `0x3A 0x00` (=58) recurs inside frame data, so a mid-stream
+  start can false-sync for one frame. Validate seq-continuity / physical range, don't trust `58,0` alone
+  (see Status ⚠️). Symptom: a lone frame with fields shifted by one `uint16` (e.g. a `10.58 g` accel).
