@@ -1,0 +1,8 @@
+# Built binaries & Python caches — keep source (.py/.c/.h/.sh), not compiled output.
+# Rebuild C tools with the cross-toolchain (see scripts/toolchain/build.sh).
+*
+!*.py
+!*.c
+!*.h
+!*.sh
+!.gitignore
